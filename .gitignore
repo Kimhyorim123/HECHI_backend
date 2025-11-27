@@ -13,6 +13,7 @@ dist/
 venv/
 venv*/
 .env.bak/
+.venv/
 
 # Editors
 .vscode/
@@ -38,6 +39,7 @@ htmlcov/
 
 # Alembic
 alembic.ini.bak
+dev_migration.db
 
 # Generated OpenAPI (keep committed versioned file, ignore temp outputs)
 openapi-temp.json
