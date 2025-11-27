@@ -1,0 +1,21 @@
+FROM nginx:1.27-alpine
+
+# Install openssl to generate self-signed certificate for local development
+RUN apk add --no-cache openssl && \
+    mkdir -p /etc/ssl/localcerts
+
+# Generate a self-signed certificate (valid 365 days) for localhost
+# Note: For production, use proper certificates (e.g., Let's Encrypt) and DO NOT bake secrets into images.
+RUN openssl req -x509 -nodes -days 365 \
+    -subj "/C=KR/ST=Seoul/L=Seoul/O=BookStopper/OU=Dev/CN=localhost" \
+    -newkey rsa:2048 \
+    -keyout /etc/ssl/localcerts/selfsigned.key \
+    -out /etc/ssl/localcerts/selfsigned.crt
+
+# Copy nginx config
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
+
+# Expose ports
+EXPOSE 80 443
+
+CMD ["nginx", "-g", "daemon off;"]

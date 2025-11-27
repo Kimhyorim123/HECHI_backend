@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual envs
+.env/
+venv/
+venv*/
+.env.bak/
+
+# Editors
+.vscode/
+.idea/
+
+# OS / Misc
+.DS_Store
+*.swp
+*.log
+
+# Test / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Envs & secrets
+.env
+*.env.local
+.env.*.local
+
+# Docker artifacts
+*.pid
+
+# Alembic
+alembic.ini.bak
+
+# Generated OpenAPI (keep committed versioned file, ignore temp outputs)
+openapi-temp.json

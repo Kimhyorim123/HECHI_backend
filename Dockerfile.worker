@@ -1,0 +1,23 @@
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN pip install --upgrade pip && pip install --prefix /install -r requirements.txt
+
+FROM python:3.11-slim
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
+COPY app ./app
+COPY worker ./worker
+COPY start-worker.sh ./start-worker.sh
+COPY alembic.ini ./
+COPY migrations ./migrations
+RUN chmod +x start-worker.sh
+
+ENV PYTHONUNBUFFERED=1
+
+CMD ["sh", "./start-worker.sh"]

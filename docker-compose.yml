@@ -1,0 +1,55 @@
+version: '3.9'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: bookstopper-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: 09150809k!
+      MYSQL_DATABASE: bookstopper
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppass
+    ports:
+      - "3306:3306"
+    command: ["mysqld", "--default-authentication-plugin=mysql_native_password"]
+    volumes:
+      - db_data:/var/lib/mysql
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: bookstopper-api
+    env_file: .env
+    environment:
+      DATABASE_URL: mysql+pymysql://appuser:apppass@db:3306/bookstopper
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: bookstopper-worker
+    env_file: .env
+    environment:
+      DATABASE_URL: mysql+pymysql://appuser:apppass@db:3306/bookstopper
+    depends_on:
+      - db
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    container_name: bookstopper-nginx
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+
+volumes:
+  db_data:
