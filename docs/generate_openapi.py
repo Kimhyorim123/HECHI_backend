@@ -70,6 +70,15 @@ SCHEMA_SUCCESS_EXAMPLES: Dict[str, Dict[str, Any]] = {
         "like_count": 0,
         "is_spoiler": False,
         "created_date": "2025-11-26",
+        "is_my_review": True,
+        "is_liked": True,
+    },
+    "CommentResponse": {
+        "id": 1,
+        "review_id": 5,
+        "user_id": 1,
+        "content": "동의합니다!",
+        "created_at": "2025-11-26T12:34:56Z",
     },
     "BookRatingSummary": {
         "book_id": 10,
@@ -89,14 +98,24 @@ SCHEMA_SUCCESS_EXAMPLES: Dict[str, Dict[str, Any]] = {
         "page": 13,
         "sentence": "기억하고 싶은 문장",
         "is_public": True,
+        "memo": "문장에 대한 개인 메모",
         "created_date": "2025-11-26",
     },
     "NoteResponse": {
         "id": 7,
         "user_book_id": 3,
-        "page": 12,
         "content": "중요한 부분",
         "created_date": "2025-11-26",
+    },
+    "CalendarMonthResponse": {
+        "year": 2025,
+        "month": 11,
+        "total_read_count": 17,
+        "top_genre": "소설",
+        "days": [
+            {"date": "2025-11-04", "items": [{"book_id": 1483, "title": "급류", "thumbnail": "https://..."}]},
+            {"date": "2025-11-07", "items": [{"book_id": 1497, "title": "프로젝트 헤일메리", "thumbnail": "https://..."}]}
+        ],
     },
     "ReadingEventResponse": {
         "id": 1,
@@ -166,7 +185,44 @@ for path, methods in spec.get("paths", {}).items():
     for method_name, op in methods.items():
         if not isinstance(op, dict):
             continue
+        # Inject request body examples for specific endpoints
+        if method_name.lower() == "post" and path == "/notes/":
+            rb = op.get("requestBody") or {}
+            content = rb.get("content") or {}
+            json_ct = content.get("application/json") or {}
+            # notes는 페이지 없이 생성 예시를 제공
+            json_ct["example"] = {"book_id": 10, "content": "중요한 부분"}
+            content["application/json"] = json_ct
+            rb["content"] = content
+            op["requestBody"] = rb
+        if method_name.lower() == "put" and path.startswith("/bookmarks/"):
+            rb = op.get("requestBody") or {}
+            content = rb.get("content") or {}
+            json_ct = content.get("application/json") or {}
+            json_ct["example"] = {"page": 120, "memo": "수정된 메모"}
+            content["application/json"] = json_ct
+            rb["content"] = content
+            op["requestBody"] = rb
+        if method_name.lower() == "put" and path.startswith("/highlights/"):
+            rb = op.get("requestBody") or {}
+            content = rb.get("content") or {}
+            json_ct = content.get("application/json") or {}
+            # 하이라이트 수정: 메모 갱신 예시
+            json_ct["example"] = {"page": 45, "memo": "수정된 하이라이트 메모"}
+            content["application/json"] = json_ct
+            rb["content"] = content
+            op["requestBody"] = rb
         responses = op.get("responses", {})
+        # Inject example for calendar-month
+        if method_name.lower() == "get" and path == "/analytics/calendar-month":
+            ok = responses.get("200") or {}
+            content = ok.get("content") or {}
+            json_ct = content.get("application/json") or {}
+            json_ct["example"] = SCHEMA_SUCCESS_EXAMPLES.get("CalendarMonthResponse")
+            content["application/json"] = json_ct
+            ok["content"] = content
+            responses["200"] = ok
+            op["responses"] = responses
         # Ensure common error responses present (skip if already defined)
         def ensure_error(code: str, example: Dict[str, Any], description: str):
             if code not in responses:

@@ -15,15 +15,21 @@
 - 토큰 발급: `/auth/login`
 - 갱신: `/auth/refresh`
 
+### 자동로그인(쿠키 기반)
+- 로그인 시 `remember_me: true`를 보내면 서버가 `refresh_token`을 HttpOnly 쿠키로 설정합니다.
+- 액세스 토큰 만료 시, 본문 없이 `/auth/refresh`를 호출하면 쿠키에서 `refresh_token`을 읽어 새 토큰을 발급합니다.
+- 로그아웃: `/auth/logout` 호출 시 쿠키 삭제(204).
+- 운영(HTTPS)에서는 `Secure`가 설정되고, 로컬/테스트 환경에서는 전송 편의를 위해 `Secure`가 비활성화됩니다.
+
 ## 주요 엔드포인트 요약
 | Tag | 기능 | 비고 |
 |-----|------|------|
 | auth | 회원가입/로그인/토큰갱신/비밀번호재설정 | 비번 재설정은 이메일 발송 로직 없이 단순 확인 |
 | books | 책 생성/검색/상세 | 검색은 부분 문자열 매칭 |
-| reviews | 리뷰 CRUD + 요약 | 1인 1책 1리뷰 제한 (중복 400) |
+| reviews | 리뷰 CRUD + 요약 | 1인 1책 1리뷰 제한 (중복 400), 응답에 is_my_review/user_book_id 포함 |
 | notes/highlights/bookmarks | 독서 중 생성되는 유저 메모/문장/표시 | limit/offset 파라미터 지원 |
 | reading | 독서 세션/이벤트 기록 | 종료 시 `total_seconds` 집계 사용 |
-| reading-status | 상태 업데이트/요약 | 진행률·총 시간·활동 수 계산 |
+| reading-status | 상태 업데이트/요약 | 진행률·총 시간·활동 수 계산, 응답에 user_book_id 포함 |
 | taste | 사용자 취향 개요 | 평점 분포 및 태그 추출 |
 | support | FAQ (상위 7개 핀), 티켓 생성/조회 | 권한 정책 향후 확장 예정 |
 | analytics | 검색/조회 로그 적재 | 조회 로그는 존재하는 책만 허용 (404) |
@@ -68,6 +74,16 @@ OpenAPI v1.1.0부터 자동 스크립트(`docs/generate_openapi.py`)가 다음 �
 ## 프론트 구현 팁
 - 페이징: `limit`, `offset` 기본값 (50,0) → 필요 시 작은 값으로 요청하여 첫 페이지 구성
 - 리뷰 평점 검증: 스펙에 min=1 max=5 내장 → UI 슬라이더 범위 동일하게 설정
+ - 내 리뷰 식별: `GET /reviews/books/{book_id}` 응답의 `is_my_review == true`로 선택. 보조 방법으로 `user_book_id` 저장 후 비교.
+ - user_book_id 확보: `POST /reading-status/update`, `GET /reading-status/summary/{book_id}`, `POST /wishlist/` 응답에 포함됨.
+  
+### 취향 분석(세부 장르 vs 대분류)
+- 엔드포인트: `GET /analytics/my-stats`
+- 사용 지침:
+	- 선호 장르 카드/리스트는 `sub_genres` 배열을 사용하세요.
+	- `top_level_genres`는 대분류(소설/시/에세이/만화/웹툰) 표기용입니다.
+	- 집계 기준: 평점이 있는 리뷰만 포함합니다(코멘트만은 제외).
+	- 정렬: 평균점수(`average_5`)와 편수(`review_count`) 기준 내림차순으로 이미 정렬된 상태로 반환됩니다.
 - 다국어 확장 대비: `language` 필드 nullable; 현 단계엔 사용자 표시 생략 가능
 - FAQ 7개 핀 제한: 표시 영역 고정 높이 레이아웃에 활용 가능
 
@@ -80,6 +96,7 @@ OpenAPI v1.1.0부터 자동 스크립트(`docs/generate_openapi.py`)가 다음 �
 ## Changelog
 - v1 (2025-11-26): 초기 스펙 추출. 코어 기능 + 지원 + 애널리틱스 포함.
 - v1.1.0 (2025-11-26): Pydantic V2 ConfigDict 마이그레이션, 스키마 기반 성공 예시, 자동 400/404 삽입, endpoint-summary 확장.
+- v1.1.1 (2025-12-04): 리뷰 목록에 `is_my_review` 추가, wishlist/reading-status 응답에 `user_book_id` 포함 명시.
 
 ---
 문서 수정 시: 버전 파일 복사 → 새 버전명 반영 → `Changelog` Append 후 PR.

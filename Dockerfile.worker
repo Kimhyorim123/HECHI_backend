@@ -19,5 +19,6 @@ COPY migrations ./migrations
 RUN chmod +x start-worker.sh
 
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 CMD ["sh", "./start-worker.sh"]

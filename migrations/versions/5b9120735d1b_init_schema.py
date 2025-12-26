@@ -74,6 +74,12 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['book_id'], ['books.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('book_id', 'author_id')
     )
+    op.create_table('book_categories',
+        sa.Column('book_id', sa.Integer(), nullable=False),
+        sa.Column('category_name', sa.String(length=255), nullable=False),
+        sa.ForeignKeyConstraint(['book_id'], ['books.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('book_id', 'category_name')
+    )
     op.create_table('devices',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
@@ -239,6 +245,12 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['user_book_id'], ['user_books.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('user_book_id', 'reading_date', name='uq_userpage_userbook_date')
+    )
+
+    # BookCategory 테이블 추가 (다대다: Book - Category)
+    op.create_table('book_categories',
+        sa.Column('book_id', sa.Integer(), sa.ForeignKey('books.id', ondelete='CASCADE'), primary_key=True),
+        sa.Column('category_name', sa.String(length=191), primary_key=True)
     )
     # ### end Alembic commands ###
 

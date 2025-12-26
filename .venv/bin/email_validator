@@ -1,4 +1,4 @@
-#!/Users/mac/backend/.venv/bin/python
+#!/home/ubuntu/bookstopper-backend/.venv/bin/python
 import sys
 from email_validator.__main__ import main
 if __name__ == '__main__':

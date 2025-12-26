@@ -186,11 +186,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RefreshRequest"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RefreshRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Data"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -229,6 +236,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "로그아웃 (refresh 쿠키 삭제)",
+        "operationId": "logout_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "400": {
             "description": "Bad Request",
@@ -318,6 +365,92 @@
         ]
       }
     },
+    "/auth/email-check": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "이메일 존재/가용성 확인",
+        "operationId": "email_check_auth_email_check_get",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "email",
+              "description": "확인할 이메일 주소",
+              "title": "Email"
+            },
+            "description": "확인할 이메일 주소"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailCheckResponse"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/reading/sessions": {
       "get": {
         "tags": [
@@ -380,7 +513,8 @@
         "tags": [
           "reading"
         ],
-        "summary": "Start Session",
+        "summary": "읽기 세션 시작",
+        "description": "start_page를 주지 않으면 서버가 최근 읽은 페이지(최근 이벤트→최근 세션 end_page→없으면 1)로 자동 설정합니다.",
         "operationId": "start_session_reading_sessions_post",
         "requestBody": {
           "content": {
@@ -691,6 +825,109 @@
         }
       }
     },
+    "/reading/sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "reading"
+        ],
+        "summary": "Get Session",
+        "operationId": "get_session_reading_sessions__session_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingSessionResponse"
+                },
+                "example": {
+                  "id": 2,
+                  "user_id": 1,
+                  "book_id": 10,
+                  "start_time": "2025-11-26T12:00:00Z",
+                  "end_time": "2025-11-26T12:30:00Z",
+                  "start_page": 1,
+                  "end_page": 30,
+                  "total_seconds": 1800,
+                  "events": [
+                    {
+                      "id": 1,
+                      "event_type": "PAGE_TURN",
+                      "page": 15,
+                      "occurred_at": "2025-11-26T12:15:00Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/notes/": {
       "post": {
         "tags": [
@@ -703,6 +940,10 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/NoteCreateRequest"
+              },
+              "example": {
+                "book_id": 10,
+                "content": "중요한 부분"
               }
             }
           },
@@ -719,7 +960,6 @@
                 "example": {
                   "id": 7,
                   "user_book_id": 3,
-                  "page": 12,
                   "content": "중요한 부분",
                   "created_date": "2025-11-26"
                 }
@@ -826,7 +1066,6 @@
                 "example": {
                   "id": 7,
                   "user_book_id": 3,
-                  "page": 12,
                   "content": "중요한 부분",
                   "created_date": "2025-11-26"
                 }
@@ -1103,6 +1342,7 @@
                   "page": 13,
                   "sentence": "기억하고 싶은 문장",
                   "is_public": true,
+                  "memo": "문장에 대한 개인 메모",
                   "created_date": "2025-11-26"
                 }
               }
@@ -1193,6 +1433,9 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/HighlightUpdateRequest"
+              },
+              "example": {
+                "memo": "수정된 하이라이트 메모"
               }
             }
           }
@@ -1211,6 +1454,7 @@
                   "page": 13,
                   "sentence": "기억하고 싶은 문장",
                   "is_public": true,
+                  "memo": "문장에 대한 개인 메모",
                   "created_date": "2025-11-26"
                 }
               }
@@ -1622,6 +1866,110 @@
             }
           }
         }
+      },
+      "put": {
+        "tags": [
+          "bookmarks"
+        ],
+        "summary": "Update Bookmark",
+        "operationId": "update_bookmark_bookmarks__bookmark_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bookmark_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Bookmark Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "title": "Payload"
+              },
+              "example": {
+                "memo": "수정된 메모"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookmarkResponse"
+                },
+                "example": {
+                  "id": 9,
+                  "user_book_id": 3,
+                  "page": 14,
+                  "memo": "다시 볼 부분",
+                  "created_date": "2025-11-26"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/bookmarks/books/{book_id}": {
@@ -1770,7 +2118,9 @@
                   "content": "엄청 재미있었어요",
                   "like_count": 0,
                   "is_spoiler": false,
-                  "created_date": "2025-11-26"
+                  "created_date": "2025-11-26",
+                  "is_my_review": true,
+                  "is_liked": true
                 }
               }
             }
@@ -1831,6 +2181,210 @@
         ]
       }
     },
+    "/reviews/upsert": {
+      "post": {
+        "tags": [
+          "reviews"
+        ],
+        "summary": "리뷰 생성 또는 갱신",
+        "operationId": "upsert_review_reviews_upsert_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponse"
+                },
+                "example": {
+                  "id": 5,
+                  "user_book_id": 3,
+                  "user_id": 1,
+                  "book_id": 10,
+                  "rating": 5,
+                  "content": "엄청 재미있었어요",
+                  "like_count": 0,
+                  "is_spoiler": false,
+                  "created_date": "2025-11-26",
+                  "is_my_review": true,
+                  "is_liked": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/reviews/rating": {
+      "patch": {
+        "tags": [
+          "reviews"
+        ],
+        "summary": "별점만 갱신",
+        "operationId": "update_rating_only_reviews_rating_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Book Id"
+            }
+          },
+          {
+            "name": "rating",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "title": "Rating"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponse"
+                },
+                "example": {
+                  "id": 5,
+                  "user_book_id": 3,
+                  "user_id": 1,
+                  "book_id": 10,
+                  "rating": 5,
+                  "content": "엄청 재미있었어요",
+                  "like_count": 0,
+                  "is_spoiler": false,
+                  "created_date": "2025-11-26",
+                  "is_my_review": true,
+                  "is_liked": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/reviews/{review_id}": {
       "put": {
         "tags": [
@@ -1881,7 +2435,9 @@
                   "content": "엄청 재미있었어요",
                   "like_count": 0,
                   "is_spoiler": false,
-                  "created_date": "2025-11-26"
+                  "created_date": "2025-11-26",
+                  "is_my_review": true,
+                  "is_liked": true
                 }
               }
             }
@@ -2011,6 +2567,102 @@
             }
           }
         }
+      },
+      "get": {
+        "tags": [
+          "reviews"
+        ],
+        "summary": "리뷰 상세",
+        "operationId": "get_review_detail_reviews__review_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Review Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponse"
+                },
+                "example": {
+                  "id": 5,
+                  "user_book_id": 3,
+                  "user_id": 1,
+                  "book_id": 10,
+                  "rating": 5,
+                  "content": "엄청 재미있었어요",
+                  "like_count": 0,
+                  "is_spoiler": false,
+                  "created_date": "2025-11-26",
+                  "is_my_review": true,
+                  "is_liked": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/reviews/books/{book_id}": {
@@ -2018,8 +2670,13 @@
         "tags": [
           "reviews"
         ],
-        "summary": "List Reviews For Book",
+        "summary": "특정 책의 리뷰 목록",
         "operationId": "list_reviews_for_book_reviews_books__book_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "book_id",
@@ -2153,6 +2810,362 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reviews/{review_id}/like": {
+      "post": {
+        "tags": [
+          "reviews"
+        ],
+        "summary": "리뷰 좋아요 토글",
+        "operationId": "toggle_like_review_reviews__review_id__like_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Review Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {},
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reviews/{review_id}/comments": {
+      "get": {
+        "tags": [
+          "reviews"
+        ],
+        "summary": "리뷰 댓글 목록",
+        "operationId": "list_review_comments_reviews__review_id__comments_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Review Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CommentResponse"
+                  },
+                  "title": "Response List Review Comments Reviews  Review Id  Comments Get"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "reviews"
+        ],
+        "summary": "리뷰 댓글 작성",
+        "operationId": "create_review_comment_reviews__review_id__comments_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Review Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentResponse"
+                },
+                "example": {
+                  "id": 1,
+                  "review_id": 5,
+                  "user_id": 1,
+                  "content": "동의합니다!",
+                  "created_at": "2025-11-26T12:34:56Z"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reviews/comments/{comment_id}": {
+      "delete": {
+        "tags": [
+          "reviews"
+        ],
+        "summary": "리뷰 댓글 삭제",
+        "operationId": "delete_review_comment_reviews_comments__comment_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "comment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Comment Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -2489,6 +3502,182 @@
         }
       }
     },
+    "/books/import/google": {
+      "post": {
+        "tags": [
+          "books",
+          "books"
+        ],
+        "summary": "Import From Google",
+        "operationId": "import_from_google_books_import_google_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleImportResult"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/books/import/google/query": {
+      "post": {
+        "tags": [
+          "books",
+          "books"
+        ],
+        "summary": "Import From Google Query",
+        "operationId": "import_from_google_query_books_import_google_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleQueryImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleImportResult"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/support/faqs": {
       "get": {
         "tags": [
@@ -2638,15 +3827,20 @@
         ],
         "summary": "Create Ticket",
         "operationId": "create_ticket_support_tickets_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TicketCreate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -2715,12 +3909,104 @@
               }
             }
           }
-        },
+        }
+      },
+      "get": {
+        "tags": [
+          "support"
+        ],
+        "summary": "전체 문의 목록(관리자)",
+        "operationId": "list_all_tickets_support_tickets_get",
         "security": [
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "parameters": [
+          {
+            "name": "status_filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketResponse"
+                  },
+                  "title": "Response List All Tickets Support Tickets Get"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/support/tickets/me": {
@@ -2782,12 +4068,115 @@
         ]
       }
     },
+    "/support/tickets/{ticket_id}/answer": {
+      "patch": {
+        "tags": [
+          "support"
+        ],
+        "summary": "문의 답변 등록/종료(관리자)",
+        "operationId": "answer_ticket_support_tickets__ticket_id__answer_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ticket_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Ticket Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketAnswer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponse"
+                },
+                "example": {
+                  "id": 4,
+                  "user_id": 1,
+                  "title": "문의 제목",
+                  "description": "문의 상세 내용",
+                  "status": "open",
+                  "created_at": "2025-11-26T12:00:00Z"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/reading-status/update": {
       "post": {
         "tags": [
           "reading-status"
         ],
-        "summary": "Update Status",
+        "summary": "읽기 상태 업데이트 (user_book_id 또는 book_id 지원)",
         "operationId": "update_status_reading_status_update_post",
         "requestBody": {
           "content": {
@@ -2968,6 +4357,198 @@
                 "schema": {},
                 "example": {
                   "ok": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/taste/options": {
+      "get": {
+        "tags": [
+          "taste"
+        ],
+        "summary": "초기 취향 선택을 위한 카테고리/장르 옵션",
+        "operationId": "taste_options_taste_options_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TasteOptionsResponse"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/taste/me": {
+      "get": {
+        "tags": [
+          "taste"
+        ],
+        "summary": "사용자 취향 분석 여부 및 선택 결과",
+        "operationId": "taste_me_taste_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TasteStatusResponse"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/taste/submit": {
+      "post": {
+        "tags": [
+          "taste"
+        ],
+        "summary": "초기 취향(카테고리/장르) 제출",
+        "operationId": "taste_submit_taste_submit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TasteSubmitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserTasteResponse"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
                 }
               }
             }
@@ -3336,6 +4917,1497 @@
         ]
       }
     },
+    "/analytics/my-stats": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "사용자 독서/평점/선호 통계",
+        "description": "선호 장르 UI는 sub_genres를 사용하세요. top_level_genres는 대분류(소설/시/에세이/만화/웹툰)로 표기용입니다. 모든 집계는 사용자 평점이 있는 리뷰만 포함되며, 반환 목록은 평균점수와 편수 기준으로 내림차순 정렬됩니다.",
+        "operationId": "user_stats_analytics_my_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserStatsResponse"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/analytics/my-insights": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "사용자 인사이트/태그 (임시 AI 대체)",
+        "operationId": "my_insights_analytics_my_insights_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserInsightResponse"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "사용자 인사이트/태그 업서트(임시 저장)",
+        "operationId": "upsert_my_insights_analytics_my_insights_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserInsightUpsert"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserInsightResponse"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/search/query": {
+      "post": {
+        "tags": [
+          "search"
+        ],
+        "summary": "텍스트로 검색(책/작가) + 기록 저장",
+        "operationId": "search_query_search_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/search/history": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "개인별 최근 검색어 목록",
+        "operationId": "search_history_search_history_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SearchHistoryItem"
+                  },
+                  "title": "Response Search History Search History Get"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "search"
+        ],
+        "summary": "개인별 검색 기록 전체 삭제",
+        "operationId": "clear_history_search_history_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {},
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search/history/{history_id}": {
+      "delete": {
+        "tags": [
+          "search"
+        ],
+        "summary": "개인별 검색 기록 단건 삭제",
+        "operationId": "delete_history_item_search_history__history_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "history_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "History Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {},
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search/barcode": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "바코드(ISBN)로 검색",
+        "operationId": "search_barcode_search_barcode_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "isbn",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "ISBN-10/13, 하이픈 허용",
+              "title": "Isbn"
+            },
+            "description": "ISBN-10/13, 하이픈 허용"
+          },
+          {
+            "name": "auto_import",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "DB에 없으면 Google에서 가져와 저장",
+              "default": true,
+              "title": "Auto Import"
+            },
+            "description": "DB에 없으면 Google에서 가져와 저장"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BarcodeSearchResponse"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search/register-reading": {
+      "post": {
+        "tags": [
+          "search"
+        ],
+        "summary": "검색 결과/바코드 팝업에서 '예' 선택 시 읽는 중 등록",
+        "operationId": "register_reading_search_register_reading_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Book Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {},
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/library/": {
+      "get": {
+        "tags": [
+          "library"
+        ],
+        "summary": "도서 보관함 조회",
+        "operationId": "get_library_library__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shelf",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "reading|completed|rated|wishlist",
+              "default": "reading",
+              "title": "Shelf"
+            },
+            "description": "reading|completed|rated|wishlist"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "latest|myRating|avgRating|title",
+              "default": "latest",
+              "title": "Sort"
+            },
+            "description": "latest|myRating|avgRating|title"
+          },
+          {
+            "name": "my_rating_in",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "예: 5.0,4.5,4.0",
+              "title": "My Rating In"
+            },
+            "description": "예: 5.0,4.5,4.0"
+          },
+          {
+            "name": "avg_rating_min",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Avg Rating Min"
+            }
+          },
+          {
+            "name": "avg_rating_max",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Avg Rating Max"
+            }
+          },
+          {
+            "name": "year_bucket",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "2020+|2010s|2000s|1990s|1980s|1970s|pre1970",
+              "title": "Year Bucket"
+            },
+            "description": "2020+|2010s|2000s|1990s|1980s|1970s|pre1970"
+          },
+          {
+            "name": "categories_in",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "카테고리 다중 선택: SF,판타지",
+              "title": "Categories In"
+            },
+            "description": "카테고리 다중 선택: SF,판타지"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryResponse"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recommend/popular": {
+      "get": {
+        "tags": [
+          "recommend"
+        ],
+        "summary": "인기순 추천: 최근 리뷰/평점 많은 순",
+        "operationId": "popular_recommend_popular_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 1,
+              "description": "최근 기준 일수",
+              "default": 30,
+              "title": "Days"
+            },
+            "description": "최근 기준 일수"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendResponse"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recommend/trending-search": {
+      "get": {
+        "tags": [
+          "recommend"
+        ],
+        "summary": "검색 순 추천: 전체 사용자 검색 히트 순 (집계 테이블 기반)",
+        "operationId": "trending_search_recommend_trending_search_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 1,
+              "description": "최근 기준 일수",
+              "default": 30,
+              "title": "Days"
+            },
+            "description": "최근 기준 일수"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendResponse"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recommend/curations": {
+      "get": {
+        "tags": [
+          "recommend"
+        ],
+        "summary": "테마별 큐레이션 20권씩",
+        "operationId": "curations_recommend_curations_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurationsResponse"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wishlist/": {
+      "post": {
+        "tags": [
+          "wishlist"
+        ],
+        "summary": "위시리스트 추가 (book_id 또는 user_book_id 지원)",
+        "operationId": "add_to_wishlist_wishlist__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Book Id"
+            }
+          },
+          {
+            "name": "user_book_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Book Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {},
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "wishlist"
+        ],
+        "summary": "내 위시리스트 조회",
+        "operationId": "list_wishlist_wishlist__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {},
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wishlist/{book_id}": {
+      "delete": {
+        "tags": [
+          "wishlist"
+        ],
+        "summary": "Remove From Wishlist",
+        "operationId": "remove_from_wishlist_wishlist__book_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Book Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {},
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                },
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "field"
+                      ],
+                      "msg": "Invalid value",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Bad Request"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -3435,6 +6507,45 @@
   },
   "components": {
     "schemas": {
+      "AuthorItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "AuthorItem"
+      },
+      "BarcodeSearchResponse": {
+        "properties": {
+          "book": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BookResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "already_registered": {
+            "type": "boolean",
+            "title": "Already Registered",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "BarcodeSearchResponse"
+      },
       "BookCreateRequest": {
         "properties": {
           "isbn": {
@@ -3517,6 +6628,50 @@
             "type": "array",
             "title": "Authors",
             "default": []
+          },
+          "thumbnail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail"
+          },
+          "small_thumbnail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Small Thumbnail"
+          },
+          "google_rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Google Rating"
+          },
+          "google_ratings_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Google Ratings Count"
           }
         },
         "type": "object",
@@ -3601,12 +6756,64 @@
             ],
             "title": "Total Pages"
           },
+          "thumbnail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail"
+          },
+          "small_thumbnail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Small Thumbnail"
+          },
+          "google_rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Google Rating"
+          },
+          "google_ratings_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Google Ratings Count"
+          },
           "authors": {
             "items": {
               "type": "string"
             },
             "type": "array",
             "title": "Authors",
+            "default": []
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories",
             "default": []
           },
           "average_rating": {
@@ -3624,6 +6831,14 @@
             "type": "integer",
             "title": "Review Count",
             "default": 0
+          },
+          "rating_histogram": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Rating Histogram",
+            "default": {}
           }
         },
         "type": "object",
@@ -3638,6 +6853,90 @@
           "total_pages"
         ],
         "title": "BookDetailResponse"
+      },
+      "BookLibraryItem": {
+        "properties": {
+          "book": {
+            "$ref": "#/components/schemas/BookResponse"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "UserBook.status 또는 wishlist 지정"
+          },
+          "added_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added At",
+            "description": "보관함에 담긴 시점 (user_books.created_at / wishlist.created_at)"
+          },
+          "my_rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "My Rating",
+            "description": "사용자가 준 별점"
+          },
+          "avg_rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Rating",
+            "description": "전체 평균 별점"
+          },
+          "review_count": {
+            "type": "integer",
+            "title": "Review Count",
+            "description": "리뷰 수",
+            "default": 0
+          },
+          "progress_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Percent",
+            "description": "읽은 페이지 기반 진행률 (0~100)"
+          },
+          "current_page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Page",
+            "description": "현재 페이지(최근 이벤트의 page → 최근 세션 end_page → UserPage.max(end_page) 순으로 추론)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "book",
+          "status"
+        ],
+        "title": "BookLibraryItem"
       },
       "BookRatingSummary": {
         "properties": {
@@ -3744,6 +7043,66 @@
               }
             ],
             "title": "Total Pages"
+          },
+          "thumbnail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail"
+          },
+          "small_thumbnail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Small Thumbnail"
+          },
+          "google_rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Google Rating"
+          },
+          "google_ratings_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Google Ratings Count"
+          },
+          "authors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Authors",
+            "default": []
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories",
+            "default": []
           }
         },
         "type": "object",
@@ -3794,7 +7153,8 @@
                 "type": "null"
               }
             ],
-            "title": "Memo"
+            "title": "Memo",
+            "description": "선택 메모"
           }
         },
         "type": "object",
@@ -3843,6 +7203,123 @@
           "created_date"
         ],
         "title": "BookmarkResponse"
+      },
+      "CommentCreateRequest": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "CommentCreateRequest"
+      },
+      "CommentResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "review_id": {
+            "type": "integer",
+            "title": "Review Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "review_id",
+          "user_id",
+          "content"
+        ],
+        "title": "CommentResponse"
+      },
+      "CurationItem": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BookResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "items"
+        ],
+        "title": "CurationItem"
+      },
+      "CurationsResponse": {
+        "properties": {
+          "curations": {
+            "items": {
+              "$ref": "#/components/schemas/CurationItem"
+            },
+            "type": "array",
+            "title": "Curations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "curations"
+        ],
+        "title": "CurationsResponse"
+      },
+      "EmailCheckResponse": {
+        "properties": {
+          "exists": {
+            "type": "boolean",
+            "title": "Exists"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exists",
+          "available"
+        ],
+        "title": "EmailCheckResponse"
       },
       "FAQCreate": {
         "properties": {
@@ -3897,6 +7374,161 @@
         ],
         "title": "FAQResponse"
       },
+      "GenreStat": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "review_count": {
+            "type": "integer",
+            "title": "Review Count"
+          },
+          "average_5": {
+            "type": "number",
+            "title": "Average 5"
+          },
+          "average_100": {
+            "type": "integer",
+            "title": "Average 100"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "review_count",
+          "average_5",
+          "average_100"
+        ],
+        "title": "GenreStat"
+      },
+      "GoogleImportRequest": {
+        "properties": {
+          "isbn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isbn",
+            "description": "ISBN-10 또는 ISBN-13 한 개"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query",
+            "description": "일반 검색어 (isbn 없을 때 사용)"
+          }
+        },
+        "type": "object",
+        "title": "GoogleImportRequest"
+      },
+      "GoogleImportResult": {
+        "properties": {
+          "created": {
+            "items": {
+              "$ref": "#/components/schemas/BookResponse"
+            },
+            "type": "array",
+            "title": "Created",
+            "default": []
+          },
+          "skipped": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Skipped",
+            "default": []
+          },
+          "updated": {
+            "items": {
+              "$ref": "#/components/schemas/BookResponse"
+            },
+            "type": "array",
+            "title": "Updated",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "GoogleImportResult"
+      },
+      "GoogleQueryImportRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query",
+            "description": "검색어"
+          },
+          "pages": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Pages",
+            "description": "가져올 페이지 수 (startIndex 기반)",
+            "default": 1
+          },
+          "page_size": {
+            "type": "integer",
+            "maximum": 40.0,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "description": "Google API maxResults (최대 40)",
+            "default": 20
+          },
+          "start_index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Start Index",
+            "description": "시작 startIndex",
+            "default": 0
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language",
+            "description": "언어 코드 필터 (예: 'ko')"
+          },
+          "max_create": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Create",
+            "description": "생성할 최대 도서 수 (초과 시 중단)"
+          },
+          "exclude_no_isbn": {
+            "type": "boolean",
+            "title": "Exclude No Isbn",
+            "description": "ISBN 없는 항목은 건너뛰기",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "GoogleQueryImportRequest"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3936,6 +7568,18 @@
             ],
             "title": "Is Public",
             "default": false
+          },
+          "memo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memo",
+            "description": "선택 메모"
           }
         },
         "type": "object",
@@ -3967,6 +7611,17 @@
           "is_public": {
             "type": "boolean",
             "title": "Is Public"
+          },
+          "memo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memo"
           },
           "created_date": {
             "type": "string",
@@ -4009,10 +7664,63 @@
               }
             ],
             "title": "Is Public"
+          },
+          "memo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memo"
           }
         },
         "type": "object",
         "title": "HighlightUpdateRequest"
+      },
+      "InsightTag": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "weight": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Weight",
+            "description": "0~1 가중치"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "weight"
+        ],
+        "title": "InsightTag"
+      },
+      "LibraryResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BookLibraryItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "LibraryResponse"
       },
       "LoginRequest": {
         "properties": {
@@ -4024,6 +7732,11 @@
           "password": {
             "type": "string",
             "title": "Password"
+          },
+          "remember_me": {
+            "type": "boolean",
+            "title": "Remember Me",
+            "default": false
           }
         },
         "type": "object",
@@ -4039,10 +7752,6 @@
             "type": "integer",
             "title": "Book Id"
           },
-          "page": {
-            "type": "integer",
-            "title": "Page"
-          },
           "content": {
             "type": "string",
             "minLength": 1,
@@ -4052,7 +7761,6 @@
         "type": "object",
         "required": [
           "book_id",
-          "page",
           "content"
         ],
         "title": "NoteCreateRequest"
@@ -4066,10 +7774,6 @@
           "user_book_id": {
             "type": "integer",
             "title": "User Book Id"
-          },
-          "page": {
-            "type": "integer",
-            "title": "Page"
           },
           "content": {
             "type": "string",
@@ -4085,7 +7789,6 @@
         "required": [
           "id",
           "user_book_id",
-          "page",
           "content",
           "created_date"
         ],
@@ -4104,6 +7807,59 @@
           "content"
         ],
         "title": "NoteUpdateRequest"
+      },
+      "RatingBucket": {
+        "properties": {
+          "rating": {
+            "type": "number",
+            "title": "Rating"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rating",
+          "count"
+        ],
+        "title": "RatingBucket"
+      },
+      "RatingSummary": {
+        "properties": {
+          "average_5": {
+            "type": "number",
+            "title": "Average 5"
+          },
+          "average_100": {
+            "type": "integer",
+            "title": "Average 100"
+          },
+          "total_reviews": {
+            "type": "integer",
+            "title": "Total Reviews"
+          },
+          "most_frequent_rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Most Frequent Rating"
+          }
+        },
+        "type": "object",
+        "required": [
+          "average_5",
+          "average_100",
+          "total_reviews",
+          "most_frequent_rating"
+        ],
+        "title": "RatingSummary"
       },
       "ReadingEventCreateRequest": {
         "properties": {
@@ -4313,7 +8069,7 @@
               }
             ],
             "title": "Start Page",
-            "description": "시작 페이지"
+            "description": "시작 페이지 (미제공 시 서버가 최근 읽은 페이지로 자동 설정: 최근 이벤트 페이지→최근 세션 end_page→없으면 1)"
           }
         },
         "type": "object",
@@ -4321,6 +8077,40 @@
           "book_id"
         ],
         "title": "ReadingSessionStartRequest"
+      },
+      "ReadingTime": {
+        "properties": {
+          "total_seconds": {
+            "type": "integer",
+            "title": "Total Seconds"
+          },
+          "human": {
+            "type": "string",
+            "title": "Human"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_seconds",
+          "human"
+        ],
+        "title": "ReadingTime"
+      },
+      "RecommendResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BookResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "RecommendResponse"
       },
       "RefreshRequest": {
         "properties": {
@@ -4375,14 +8165,29 @@
             "title": "Book Id"
           },
           "rating": {
-            "type": "integer",
-            "maximum": 5.0,
-            "minimum": 1.0,
+            "anyOf": [
+              {
+                "type": "number",
+                "multipleOf": 0.5,
+                "maximum": 5.0,
+                "minimum": 0.5
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Rating"
           },
           "content": {
-            "type": "string",
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Content"
           },
           "is_spoiler": {
@@ -4393,9 +8198,7 @@
         },
         "type": "object",
         "required": [
-          "book_id",
-          "rating",
-          "content"
+          "book_id"
         ],
         "title": "ReviewCreateRequest"
       },
@@ -4418,11 +8221,25 @@
             "title": "Book Id"
           },
           "rating": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Rating"
           },
           "content": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Content"
           },
           "like_count": {
@@ -4437,6 +8254,16 @@
             "type": "string",
             "format": "date",
             "title": "Created Date"
+          },
+          "is_my_review": {
+            "type": "boolean",
+            "title": "Is My Review",
+            "default": false
+          },
+          "is_liked": {
+            "type": "boolean",
+            "title": "Is Liked",
+            "default": false
           }
         },
         "type": "object",
@@ -4458,9 +8285,10 @@
           "rating": {
             "anyOf": [
               {
-                "type": "integer",
+                "type": "number",
+                "multipleOf": 0.5,
                 "maximum": 5.0,
-                "minimum": 1.0
+                "minimum": 0.5
               },
               {
                 "type": "null"
@@ -4495,6 +8323,83 @@
         "type": "object",
         "title": "ReviewUpdateRequest"
       },
+      "ReviewUpsertRequest": {
+        "properties": {
+          "book_id": {
+            "type": "integer",
+            "title": "Book Id"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number",
+                "multipleOf": 0.5,
+                "maximum": 5.0,
+                "minimum": 0.5
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating",
+            "description": "별점만 갱신 가능"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content",
+            "description": "코멘트는 선택사항"
+          },
+          "is_spoiler": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Spoiler",
+            "description": "스포일러 여부(선택)",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "book_id"
+        ],
+        "title": "ReviewUpsertRequest"
+      },
+      "SearchHistoryItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "query",
+          "created_at"
+        ],
+        "title": "SearchHistoryItem"
+      },
       "SearchLogRequest": {
         "properties": {
           "query": {
@@ -4510,23 +8415,184 @@
         ],
         "title": "SearchLogRequest"
       },
-      "StatusUpdate": {
+      "SearchRequest": {
         "properties": {
-          "book_id": {
-            "type": "integer",
-            "title": "Book Id"
-          },
-          "status": {
+          "query": {
             "type": "string",
-            "title": "Status"
+            "minLength": 1,
+            "title": "Query",
+            "description": "검색 키워드"
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "default": 20
+          },
+          "save_history": {
+            "type": "boolean",
+            "title": "Save History",
+            "description": "개인별 검색 기록 저장 여부",
+            "default": true
           }
         },
         "type": "object",
         "required": [
-          "book_id",
+          "query"
+        ],
+        "title": "SearchRequest"
+      },
+      "SearchResult": {
+        "properties": {
+          "books": {
+            "items": {
+              "$ref": "#/components/schemas/BookResponse"
+            },
+            "type": "array",
+            "title": "Books",
+            "default": []
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/AuthorItem"
+            },
+            "type": "array",
+            "title": "Authors",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "SearchResult"
+      },
+      "StatusUpdate": {
+        "properties": {
+          "user_book_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Book Id"
+          },
+          "book_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Book Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "READING, COMPLETED, PENDING, ARCHIVED"
+          }
+        },
+        "type": "object",
+        "required": [
           "status"
         ],
         "title": "StatusUpdate"
+      },
+      "TasteOptionsResponse": {
+        "properties": {
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Genres"
+          }
+        },
+        "type": "object",
+        "required": [
+          "categories",
+          "genres"
+        ],
+        "title": "TasteOptionsResponse"
+      },
+      "TasteStatusResponse": {
+        "properties": {
+          "analyzed": {
+            "type": "boolean",
+            "title": "Analyzed"
+          },
+          "preferences": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserTasteResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "analyzed"
+        ],
+        "title": "TasteStatusResponse"
+      },
+      "TasteSubmitRequest": {
+        "properties": {
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Categories"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Genres"
+          }
+        },
+        "type": "object",
+        "required": [
+          "categories",
+          "genres"
+        ],
+        "title": "TasteSubmitRequest"
+      },
+      "TicketAnswer": {
+        "properties": {
+          "reply": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Reply"
+          },
+          "close": {
+            "type": "boolean",
+            "title": "Close",
+            "description": "답변 후 즉시 종료 처리 여부",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "reply"
+        ],
+        "title": "TicketAnswer"
       },
       "TicketCreate": {
         "properties": {
@@ -4565,6 +8631,17 @@
           "description": {
             "type": "string",
             "title": "Description"
+          },
+          "reply": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply"
           },
           "status": {
             "type": "string",
@@ -4639,6 +8716,62 @@
         ],
         "title": "UserCreate"
       },
+      "UserInsightResponse": {
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/InsightTag"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "UserInsightResponse"
+      },
+      "UserInsightUpsert": {
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/InsightTag"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "title": "UserInsightUpsert"
+      },
       "UserRead": {
         "properties": {
           "email": {
@@ -4669,6 +8802,17 @@
               }
             ],
             "title": "Created At"
+          },
+          "taste_analyzed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taste Analyzed"
           }
         },
         "type": "object",
@@ -4679,6 +8823,70 @@
           "id"
         ],
         "title": "UserRead"
+      },
+      "UserStatsResponse": {
+        "properties": {
+          "rating_distribution": {
+            "items": {
+              "$ref": "#/components/schemas/RatingBucket"
+            },
+            "type": "array",
+            "title": "Rating Distribution"
+          },
+          "rating_summary": {
+            "$ref": "#/components/schemas/RatingSummary"
+          },
+          "reading_time": {
+            "$ref": "#/components/schemas/ReadingTime"
+          },
+          "top_level_genres": {
+            "items": {
+              "$ref": "#/components/schemas/GenreStat"
+            },
+            "type": "array",
+            "title": "Top Level Genres"
+          },
+          "sub_genres": {
+            "items": {
+              "$ref": "#/components/schemas/GenreStat"
+            },
+            "type": "array",
+            "title": "Sub Genres"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rating_distribution",
+          "rating_summary",
+          "reading_time",
+          "top_level_genres",
+          "sub_genres"
+        ],
+        "title": "UserStatsResponse"
+      },
+      "UserTasteResponse": {
+        "properties": {
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Genres"
+          }
+        },
+        "type": "object",
+        "required": [
+          "categories",
+          "genres"
+        ],
+        "title": "UserTasteResponse"
       },
       "ValidationError": {
         "properties": {

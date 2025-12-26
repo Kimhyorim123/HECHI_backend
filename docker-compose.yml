@@ -9,7 +9,7 @@ services:
       MYSQL_ROOT_PASSWORD: 09150809k!
       MYSQL_DATABASE: bookstopper
       MYSQL_USER: appuser
-      MYSQL_PASSWORD: apppass
+      MYSQL_PASSWORD: 09150809k!
     ports:
       - "3306:3306"
     command: ["mysqld", "--default-authentication-plugin=mysql_native_password"]
@@ -21,13 +21,20 @@ services:
       context: .
       dockerfile: Dockerfile.api
     container_name: bookstopper-api
+    working_dir: /app
     env_file: .env
     environment:
-      DATABASE_URL: mysql+pymysql://appuser:apppass@db:3306/bookstopper
+      DATABASE_URL: mysql+pymysql://appuser:09150809k!@db:3306/bookstopper
+      FCM_SERVICE_ACCOUNT_JSON_PATH: /app/bookstopper-c6236-firebase-adminsdk-fbsvc-07d1b65982.json
     depends_on:
       - db
-    ports:
-      - "8000:8000"
+    # 내부 네트워크에서만 8000 사용 (Nginx가 80/443을 프록시)
+    expose:
+      - "8000"
+    volumes:
+      - ./bookstopper-c6236-firebase-adminsdk-fbsvc-07d1b65982.json:/app/bookstopper-c6236-firebase-adminsdk-fbsvc-07d1b65982.json:ro
+      - ./scripts:/app/scripts
+      - ./app/.env:/app/.env
 
   worker:
     build:
@@ -36,7 +43,7 @@ services:
     container_name: bookstopper-worker
     env_file: .env
     environment:
-      DATABASE_URL: mysql+pymysql://appuser:apppass@db:3306/bookstopper
+      DATABASE_URL: mysql+pymysql://appuser:09150809k!@db:3306/bookstopper
     depends_on:
       - db
 
@@ -50,6 +57,9 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    volumes:
+      - /home/ubuntu/certs:/etc/letsencrypt:ro
+      - /home/ubuntu/certbot-www:/var/www/certbot:ro
 
 volumes:
   db_data:

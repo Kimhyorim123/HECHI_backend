@@ -5,6 +5,7 @@ from app.core.auth import get_current_user
 from app.database import get_db
 from app.models import Note, User, UserBook
 from app.schemas.note import NoteCreateRequest, NoteUpdateRequest, NoteResponse
+from app.core.utils import to_seoul
 
 router = APIRouter(prefix="/notes", tags=["notes"])
 
@@ -31,10 +32,11 @@ def create_note(
     current_user: User = Depends(get_current_user),
 ):
     ub = _get_or_create_user_book(db, current_user.id, payload.book_id)
-    note = Note(user_book_id=ub.id, page=payload.page, content=payload.content)
+    note = Note(user_book_id=ub.id, content=payload.content)
     db.add(note)
     db.commit()
     db.refresh(note)
+    note.created_date = to_seoul(note.created_date)
     return note
 
 
@@ -57,6 +59,7 @@ def update_note(
     note.content = payload.content
     db.commit()
     db.refresh(note)
+    note.created_date = to_seoul(note.created_date)
     return note
 
 
@@ -92,9 +95,11 @@ def list_notes_for_book(
         db.query(Note)
         .join(UserBook, UserBook.id == Note.user_book_id)
         .filter(UserBook.user_id == current_user.id, UserBook.book_id == book_id)
-        .order_by(Note.page.asc(), Note.id.desc())
+        .order_by(Note.created_date.desc(), Note.id.desc())
         .offset(offset)
         .limit(limit)
         .all()
     )
+    for n in notes:
+        n.created_date = to_seoul(n.created_date)
     return notes

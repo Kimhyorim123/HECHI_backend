@@ -5,26 +5,47 @@ from sqlalchemy import func
 from app.core.auth import get_current_user
 from app.database import get_db
 from app.models import User, UserBook, Book, ReadingSession, Bookmark, Highlight, Note
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/reading-status", tags=["reading-status"])
 
 
 class StatusUpdate(BaseModel):
-    book_id: int
-    status: str  # e.g., READING, COMPLETED, PENDING, ARCHIVED
+    # 둘 중 하나만 제공: user_book_id 또는 book_id
+    user_book_id: int | None = None
+    book_id: int | None = None
+    status: str = Field(..., description="READING, COMPLETED, PENDING, ARCHIVED")
 
 
-@router.post("/update")
+@router.post("/update", summary="읽기 상태 업데이트 (user_book_id 또는 book_id 지원)")
 def update_status(payload: StatusUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    ub = db.query(UserBook).filter_by(user_id=user.id, book_id=payload.book_id).first()
-    if not ub:
-        ub = UserBook(user_id=user.id, book_id=payload.book_id)
-        db.add(ub)
-        db.flush()
+    # 입력 검증
+    if (payload.user_book_id is None and payload.book_id is None) or (
+        payload.user_book_id is not None and payload.book_id is not None
+    ):
+        raise HTTPException(status_code=422, detail="Provide exactly one of user_book_id or book_id")
+
+    if payload.user_book_id is not None:
+        ub = db.query(UserBook).filter(UserBook.id == payload.user_book_id, UserBook.user_id == user.id).first()
+        if not ub:
+            raise HTTPException(status_code=404, detail="UserBook not found")
+    else:
+        ub = db.query(UserBook).filter_by(user_id=user.id, book_id=payload.book_id).first()
+        if not ub:
+            ub = UserBook(user_id=user.id, book_id=payload.book_id)
+            db.add(ub)
+            db.flush()
+    # 상태 변경 날짜 기록
+    from datetime import datetime
+    now = datetime.utcnow()
+    prev_status = ub.status
     ub.status = payload.status
+    if payload.status == "READING" and (not ub.started_at or prev_status != "READING"):
+        ub.started_at = now
+    if payload.status == "COMPLETED" and (not ub.completed_at or prev_status != "COMPLETED"):
+        ub.completed_at = now
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "user_book_id": ub.id, "book_id": ub.book_id, "status": ub.status}
 
 
 @router.get("/summary/{book_id}")
@@ -87,6 +108,9 @@ def summary(book_id: int, db: Session = Depends(get_db), user: User = Depends(ge
         or 0
     )
 
+    # 사용자 서재 레코드 조회(있으면 ID 포함)
+    ub = db.query(UserBook).filter_by(user_id=user.id, book_id=book_id).first()
+
     return {
         "progress": round(progress, 4),
         "period": {
@@ -99,4 +123,7 @@ def summary(book_id: int, db: Session = Depends(get_db), user: User = Depends(ge
             "highlights": int(highlight_count),
             "notes": int(note_count),
         },
+        "user_book_id": ub.id if ub else None,
+        "status": ub.status if ub else None,
+        "book_id": book_id,
     }

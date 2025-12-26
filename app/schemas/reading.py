@@ -6,7 +6,13 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class ReadingSessionStartRequest(BaseModel):
     book_id: int = Field(..., description="읽는 책 ID")
-    start_page: Optional[int] = Field(None, description="시작 페이지")
+    start_page: Optional[int] = Field(
+        None,
+        description=(
+            "시작 페이지 (미제공 시 서버가 최근 읽은 페이지로 자동 설정: "
+            "최근 이벤트 페이지→최근 세션 end_page→없으면 1)"
+        ),
+    )
 
 
 class ReadingEventCreateRequest(BaseModel):

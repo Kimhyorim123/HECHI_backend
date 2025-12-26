@@ -1,6 +1,8 @@
+
 from datetime import date
 import enum
 
+from datetime import datetime
 from sqlalchemy import (
     Column,
     Integer,
@@ -11,11 +13,28 @@ from sqlalchemy import (
     Boolean,
     ForeignKey,
     Enum,
+    Float,
     UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.dialects.mysql import JSON  # MySQL JSON 타입
+
+Base = declarative_base()
+
+# BookList 모델 정의(Base 선언 이후)
+class BookList(Base):
+    __tablename__ = "book_lists"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    isbn = Column(String(13), ForeignKey("books.isbn_10", ondelete="CASCADE"), nullable=False)
+    list_type = Column(String(50), nullable=False)  # 예: bestseller_all, new_all
+    rank = Column(Integer, nullable=False)
+    list_date = Column(Date, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("isbn", "list_type", name="uq_booklist_isbn_type"),
+    )
 
 Base = declarative_base()
 
@@ -83,6 +102,11 @@ class User(Base):
 
     name = Column(String(100), nullable=False)
     nickname = Column(String(100), nullable=False)
+    # 관리자 여부 (운영용)
+    is_admin = Column(Boolean, nullable=False, default=False)
+    # 사용자 소개글
+    description = Column(Text, nullable=True)
+    taste_analyzed = Column(Boolean, nullable=False, default=False)
     profile_visibility = Column(
         Enum(ProfileVisibility),
         nullable=False,
@@ -91,6 +115,9 @@ class User(Base):
 
     # 지금은 기기 1대만 가정 → fcm_token을 User에 직접 둠
     fcm_token = Column(String(255), nullable=True)
+
+    # 취향 분석 완료 여부
+    taste_analyzed = Column(Boolean, nullable=False, default=False)
 
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(
@@ -146,15 +173,22 @@ class Book(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     # 반드시 수정: ISBN은 INT가 아니라 문자열로
-    isbn = Column(String(13), unique=True, nullable=True)
+    isbn_10 = Column(String(13), unique=True, nullable=True)
+    isbn_13 = Column(String(13), nullable=True)
 
     title = Column(String(255), nullable=False)
     publisher = Column(String(255), nullable=True)
     published_date = Column(Date, nullable=True)
     language = Column(String(50), nullable=True)
-    category = Column(String(100), nullable=True)
+    category = Column(String(255), nullable=True)
     total_pages = Column(Integer, nullable=True)
     nfc_uid = Column(String(255), nullable=True)
+    # New fields
+    thumbnail = Column(String(512), nullable=True)
+    small_thumbnail = Column(String(512), nullable=True)
+    google_rating = Column(Float, nullable=True)
+    google_ratings_count = Column(Integer, nullable=True)
+    description = Column(Text, nullable=True)
 
     # 관계
     authors = relationship(
@@ -164,6 +198,9 @@ class Book(Base):
     )
     user_books = relationship("UserBook", back_populates="book")
     reviews = relationship("Review", back_populates="book")
+
+
+ 
 # =========================
 # 고객센터: FAQ / SupportTicket
 # =========================
@@ -190,11 +227,51 @@ class SupportTicket(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(255), nullable=False)
-    description = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    # 첨부 파일 URL (S3/CDN 또는 서버 정적 경로)
+    attachment_url = Column(String(1024), nullable=True)
+    # 운영진 답변(선택)
+    reply = Column(Text, nullable=True)
+    # 운영진 답변 메타
+    responded_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    responded_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     status = Column(Enum(SupportTicketStatus), nullable=False, default=SupportTicketStatus.OPEN)
 
-    user = relationship("User")
+    user = relationship("User", foreign_keys=[user_id])
+    responder = relationship("User", foreign_keys=[responded_by])
+
+
+class SupportTicketAction(str, enum.Enum):
+    CREATE = "CREATE"
+    ANSWER_ADD = "ANSWER_ADD"
+    ANSWER_UPDATE = "ANSWER_UPDATE"
+    ANSWER_DELETE = "ANSWER_DELETE"
+    STATUS_CHANGE = "STATUS_CHANGE"
+
+
+class SupportTicketLog(Base):
+    __tablename__ = "support_ticket_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ticket_id = Column(Integer, ForeignKey("support_tickets.id", ondelete="CASCADE"), nullable=False)
+    actor_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    action = Column(Enum(SupportTicketAction), nullable=False)
+    message = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class SupportTicketAnswerHistory(Base):
+    __tablename__ = "support_ticket_answer_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ticket_id = Column(Integer, ForeignKey("support_tickets.id", ondelete="CASCADE"), nullable=False)
+    responder_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    answer_text = Column(Text, nullable=False)
+    answered_at = Column(DateTime, server_default=func.now(), nullable=False)
+    # responder 관계는 선택적
+    # 명시적 관계가 필요하면 주석 해제
+    # responder = relationship("User", foreign_keys=[responded_by])
 
 
 # =========================
@@ -211,6 +288,21 @@ class SearchHistory(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
 
+# =========================
+# SearchQueryStat: 전역 검색어 집계 (개인 기록과 분리)
+# =========================
+
+class SearchQueryStat(Base):
+    __tablename__ = "search_query_stats"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    query = Column(String(255), nullable=False, unique=True)
+    total_count = Column(Integer, nullable=False, default=0)
+    last_hit_at = Column(DateTime, nullable=False, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 class Wishlist(Base):
     __tablename__ = "wishlist"
 
@@ -218,6 +310,7 @@ class Wishlist(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    wishlist_at = Column(DateTime, nullable=True)  # 위시리스트 추가 시점
 
     __table_args__ = (
         UniqueConstraint("user_id", "book_id", name="uq_wishlist_user_book"),
@@ -252,6 +345,18 @@ class BookAuthor(Base):
     author = relationship("Author", back_populates="books")
 
 
+# 다대다: Book - Category (여러 카테고리 저장)
+class BookCategory(Base):
+    __tablename__ = "book_categories"
+
+    book_id = Column(
+        Integer,
+        ForeignKey("books.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    category_name = Column(String(191), primary_key=True)
+
+
 # =========================
 # UserBook (책 단위 독서 상태)
 # =========================
@@ -279,9 +384,11 @@ class UserBook(Base):
     )
     is_life_book = Column(Boolean, nullable=False, default=False)
 
-    # 책 전체 기준 시작/완독 날짜
+    # 책 전체 기준 시작/완독 날짜 (상태 변경 시 기록)
     started_date = Column(Date, nullable=True)
     finished_date = Column(Date, nullable=True)
+    started_at = Column(DateTime, nullable=True)  # 읽는 중 상태 진입 시
+    completed_at = Column(DateTime, nullable=True)  # 완독 상태 진입 시
 
     # 전체 누적 독서 시간(초 단위, 선택)
     total_reading_seconds = Column(Integer, nullable=True)
@@ -378,9 +485,9 @@ class Note(Base):
         nullable=False,
     )
 
-    page = Column(Integer, nullable=False)
+    page = Column(Integer, nullable=True)
     content = Column(Text, nullable=False)
-    created_date = Column(Date, nullable=False, default=date.today)
+    created_date = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     user_book = relationship("UserBook", back_populates="notes")
 
@@ -397,8 +504,9 @@ class Highlight(Base):
 
     page = Column(Integer, nullable=False)
     sentence = Column(Text, nullable=False)
+    memo = Column(Text, nullable=True)
     is_public = Column(Boolean, nullable=False, default=False)
-    created_date = Column(Date, nullable=False, default=date.today)
+    created_date = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     user_book = relationship("UserBook", back_populates="highlights")
 
@@ -415,7 +523,7 @@ class Bookmark(Base):
 
     page = Column(Integer, nullable=False)
     memo = Column(Text, nullable=True)
-    created_date = Column(Date, nullable=False, default=date.today)
+    created_date = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     user_book = relationship("UserBook", back_populates="bookmarks")
 
@@ -445,8 +553,8 @@ class Review(Base):
         nullable=False,
     )
 
-    rating = Column(Integer, nullable=False)  # 1~5 등
-    content = Column(Text, nullable=False)
+    rating = Column(Float, nullable=True)
+    content = Column(Text, nullable=True)
 
     # 좋아요 단순 카운트 (per-user isLiked는 제거)
     like_count = Column(Integer, nullable=False, default=0)
@@ -459,6 +567,46 @@ class Review(Base):
     user_book = relationship("UserBook", back_populates="reviews")
     user = relationship("User", back_populates="reviews")
     book = relationship("Book", back_populates="reviews")
+    likes = relationship(
+        "ReviewLike",
+        back_populates="review",
+        cascade="all, delete-orphan",
+    )
+    comments = relationship(
+        "ReviewComment",
+        back_populates="review",
+        cascade="all, delete-orphan",
+    )
+
+
+class ReviewLike(Base):
+    __tablename__ = "review_likes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    review_id = Column(Integer, ForeignKey("reviews.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    wishlist_at = Column(DateTime, nullable=True)  # 위시리스트 추가 시점
+
+    review = relationship("Review", back_populates="likes")
+
+    __table_args__ = (
+        UniqueConstraint("review_id", "user_id", name="uq_review_like_user"),
+    )
+
+
+class ReviewComment(Base):
+    __tablename__ = "review_comments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    review_id = Column(Integer, ForeignKey("reviews.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, nullable=True)
+
+    review = relationship("Review", back_populates="comments")
 
 
 # =========================
@@ -632,6 +780,30 @@ class Notification(Base):
 
 
 # =========================
+# 추가: UserInsight (임시 AI 분석/태그 저장)
+# =========================
+
+
+class UserInsight(Base):
+    __tablename__ = "user_insights"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+
+    # 임시 분석 텍스트(나중에 AI 결과로 대체 예정)
+    analysis_text = Column(Text, nullable=True)
+
+    # 태그 + 가중치 리스트(JSON)
+    # 예: [{"label": "힐링", "weight": 0.92}, ...]
+    tags = Column(JSON, nullable=True)
+
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    user = relationship("User")
+
+
+# =========================
 # 추가: Device / ReadingSession / ReadingEvent / FCMToken
 # =========================
 
@@ -698,5 +870,24 @@ class FCMToken(Base):
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     last_used_at = Column(DateTime, nullable=True)
+
+    user = relationship("User")
+
+
+# =========================
+# UserTaste (초기 취향 분석 결과 저장)
+# =========================
+
+class UserTaste(Base):
+    __tablename__ = "user_tastes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    # 다중 선택 카테고리 (소설, 시, 에세이, 만화 등)
+    categories = Column(JSON, nullable=False)
+    # 다중 선택 장르 (추리, 코미디, SF, 판타지, 로맨스 등)
+    genres = Column(JSON, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     user = relationship("User")

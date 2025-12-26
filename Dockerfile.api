@@ -18,6 +18,7 @@ COPY README.md ./
 COPY start-api.sh ./start-api.sh
 COPY alembic.ini ./
 COPY migrations ./migrations
+COPY scripts ./scripts
 RUN chmod +x start-api.sh
 
 ENV PYTHONUNBUFFERED=1

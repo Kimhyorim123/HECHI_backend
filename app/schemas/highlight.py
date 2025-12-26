@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field, ConfigDict
@@ -9,11 +9,14 @@ class HighlightCreateRequest(BaseModel):
     page: int
     sentence: str = Field(..., min_length=1)
     is_public: Optional[bool] = False
+    memo: Optional[str] = Field(default=None, description="선택 메모")
 
 
 class HighlightUpdateRequest(BaseModel):
-    sentence: Optional[str] = Field(None, min_length=1)
-    is_public: Optional[bool] = None
+    page: Optional[int] = None
+    sentence: str = Field(..., min_length=1)
+    is_public: bool = Field(...)
+    memo: Optional[str] = None
 
 
 class HighlightResponse(BaseModel):
@@ -22,5 +25,6 @@ class HighlightResponse(BaseModel):
     page: int
     sentence: str
     is_public: bool
-    created_date: date
+    memo: Optional[str] = None
+    created_date: datetime
     model_config = ConfigDict(from_attributes=True)
