@@ -222,7 +222,16 @@ def admin_answer(
     db.add(SupportTicketAnswerHistory(ticket_id=t.id, responder_user_id=(admin.id if hasattr(admin, "id") else None), answer_text=inquiry_answer))
     # notify user
     try:
-        create_notification(db, t.user_id, title="문의 답변이 도착했어요", body=t.title, data={"inquiryId": t.id})
+        create_notification(
+            db,
+            t.user_id,
+            title="문의 답변이 도착했어요",
+            body="보낸 문의에 운영팀 답변이 등록됐어요.",
+            data={"inquiryId": t.id},
+            notification_type=NotificationType.CUSTOMER_SERVICE_ANSWERED,
+            target_info={"inquiryId": t.id},
+            send_push=True,
+        )
     except Exception:
         pass
     db.commit()

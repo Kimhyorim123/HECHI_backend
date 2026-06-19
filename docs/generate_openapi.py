@@ -79,6 +79,7 @@ SCHEMA_SUCCESS_EXAMPLES: Dict[str, Dict[str, Any]] = {
         "user_id": 1,
         "content": "동의합니다!",
         "created_at": "2025-11-26T12:34:56Z",
+        "is_my_comment": True,
     },
     "BookRatingSummary": {
         "book_id": 10,

@@ -70,15 +70,46 @@ class AIJobStatus(str, enum.Enum):
     FAILED = "FAILED"
 
 
+class ReadingSummaryStatus(str, enum.Enum):
+    NOT_READY = "NOT_READY"
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    READY = "READY"
+    FAILED = "FAILED"
+
+
 class GroupRole(str, enum.Enum):
     MEMBER = "MEMBER"
     LEADER = "LEADER"
+
+
+class GroupPostType(str, enum.Enum):
+    ANNOUNCEMENT = "ANNOUNCEMENT"
+    MISSION = "MISSION"
+    FREE = "FREE"
 
 
 class NotificationType(str, enum.Enum):
     AI_SUMMARY_READY = "AI_SUMMARY_READY"
     GROUP_NOTICE = "GROUP_NOTICE"
     GENERAL = "GENERAL"
+    BADGE_EARNED = "BADGE_EARNED"
+    BOOK_RECOMMEND = "BOOK_RECOMMEND"
+    READING_REPORT = "READING_REPORT"
+    READING_SLUMP = "READING_SLUMP"
+    REVIEW_REACTION = "REVIEW_REACTION"
+    COLLECTION_REACTION = "COLLECTION_REACTION"
+    GROUP_ANNOUNCEMENT = "GROUP_ANNOUNCEMENT"
+    GROUP_MISSION_UPDATE = "GROUP_MISSION_UPDATE"
+    GROUP_DISCUSSION = "GROUP_DISCUSSION"
+    SOCIAL_LIKE = "SOCIAL_LIKE"
+    SOCIAL_COMMENT = "SOCIAL_COMMENT"
+    CUSTOMER_SERVICE_ANSWERED = "CUSTOMER_SERVICE_ANSWERED"
+
+
+class NotificationTabCategory(str, enum.Enum):
+    GENERAL = "GENERAL"
+    GROUP = "GROUP"
 
 
 class InquiryCategory(str, enum.Enum):
@@ -86,6 +117,15 @@ class InquiryCategory(str, enum.Enum):
     BUG = "BUG"
     FEATURE = "FEATURE"
     OTHER = "OTHER"
+
+
+class CollectionTagCategoryType(str, enum.Enum):
+    EMOTION = "EMOTION"
+    MOOD = "MOOD"
+    SITUATION = "SITUATION"
+    READING_STYLE = "READING_STYLE"
+    DIFFICULTY = "DIFFICULTY"
+    GENRE = "GENRE"
 
 
 # =========================
@@ -98,7 +138,13 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(255), unique=True, nullable=False)
+    login_id = Column(String(100), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
+    email_verified = Column(Boolean, nullable=False, default=False)
+    email_verification_code_hash = Column(String(255), nullable=True)
+    email_verification_expires_at = Column(DateTime, nullable=True)
+    email_verification_sent_at = Column(DateTime, nullable=True)
+    email_verified_at = Column(DateTime, nullable=True)
 
     name = Column(String(100), nullable=False)
     nickname = Column(String(100), nullable=False)
@@ -115,6 +161,7 @@ class User(Base):
 
     # 지금은 기기 1대만 가정 → fcm_token을 User에 직접 둠
     fcm_token = Column(String(255), nullable=True)
+    profile_image_url = Column(String(1024), nullable=True)
 
     # 취향 분석 완료 여부
     taste_analyzed = Column(Boolean, nullable=False, default=False)
@@ -142,6 +189,22 @@ class User(Base):
     )
     notifications = relationship(
         "Notification",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    notification_settings = relationship(
+        "UserNotificationSetting",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    fcm_tokens = relationship(
+        "FCMToken",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    badges = relationship(
+        "UserBadge",
         back_populates="user",
         cascade="all, delete-orphan",
     )
@@ -619,10 +682,15 @@ class Group(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
+    group_id = Column(String(50), unique=True, nullable=True)
+    background_image = Column(String(512), nullable=True)
+    max_members = Column(Integer, nullable=True)
+    description = Column(Text, nullable=True)
 
     is_private = Column(Boolean, nullable=False, default=False)
     code = Column(String(50), nullable=True)       # 비공개 코드
     password = Column(String(255), nullable=True)  # 비공개용 비밀번호
+    password_hash = Column(String(255), nullable=True)
 
     leader_user_id = Column(
         Integer,
@@ -672,21 +740,156 @@ class GroupMember(Base):
 class GroupMonthlyBook(Base):
     __tablename__ = "group_monthly_books"
 
+    id = Column(Integer, primary_key=True, autoincrement=True)
     group_id = Column(
         Integer,
         ForeignKey("groups.id", ondelete="CASCADE"),
-        primary_key=True,
+        nullable=False,
     )
     book_id = Column(
         Integer,
         ForeignKey("books.id", ondelete="CASCADE"),
-        primary_key=True,
+        nullable=False,
     )
 
     month = Column(String(7), nullable=False)  # 예: "2025-11"
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     group = relationship("Group", back_populates="monthly_books")
     book = relationship("Book")
+
+
+class GroupPost(Base):
+    __tablename__ = "group_posts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    post_type = Column(Enum(GroupPostType), nullable=False)
+    title = Column(String(255), nullable=True)
+    content = Column(Text, nullable=False)
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="SET NULL"), nullable=True)
+    record_id = Column(Integer, nullable=True)
+    records = Column(JSON, nullable=True)
+    discussion = Column(JSON, nullable=True)
+    is_pinned = Column(Boolean, nullable=False, default=False)
+    pinned_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, nullable=True)
+
+    group = relationship("Group")
+    user = relationship("User")
+    book = relationship("Book")
+    comments = relationship("GroupComment", back_populates="post", cascade="all, delete-orphan")
+    likes = relationship("GroupPostLike", back_populates="post", cascade="all, delete-orphan")
+    reports = relationship("GroupPostReport", back_populates="post", cascade="all, delete-orphan")
+    discussion_votes = relationship(
+        "GroupPostDiscussionVote",
+        back_populates="post",
+        cascade="all, delete-orphan",
+    )
+
+
+class GroupPostLike(Base):
+    __tablename__ = "group_post_likes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    post_id = Column(Integer, ForeignKey("group_posts.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    post = relationship("GroupPost", back_populates="likes")
+
+    __table_args__ = (
+        UniqueConstraint("post_id", "user_id", name="uq_group_post_like_user"),
+    )
+
+
+class GroupComment(Base):
+    __tablename__ = "group_comments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    post_id = Column(Integer, ForeignKey("group_posts.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    parent_id = Column(Integer, ForeignKey("group_comments.id", ondelete="CASCADE"), nullable=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, nullable=True)
+
+    post = relationship("GroupPost", back_populates="comments")
+    user = relationship("User")
+    parent = relationship("GroupComment", remote_side=[id])
+    likes = relationship("GroupCommentLike", back_populates="comment", cascade="all, delete-orphan")
+    reports = relationship("GroupCommentReport", back_populates="comment", cascade="all, delete-orphan")
+
+
+class GroupCommentLike(Base):
+    __tablename__ = "group_comment_likes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    comment_id = Column(Integer, ForeignKey("group_comments.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    comment = relationship("GroupComment", back_populates="likes")
+
+    __table_args__ = (
+        UniqueConstraint("comment_id", "user_id", name="uq_group_comment_like_user"),
+    )
+
+
+class GroupPostReport(Base):
+    __tablename__ = "group_post_reports"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    post_id = Column(Integer, ForeignKey("group_posts.id", ondelete="CASCADE"), nullable=False)
+    reporter_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    reason_code = Column(String(50), nullable=False, default="OTHER")
+    reason = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    post = relationship("GroupPost", back_populates="reports")
+    reporter = relationship("User")
+
+    __table_args__ = (
+        UniqueConstraint("post_id", "reporter_user_id", name="uq_group_post_report_user"),
+    )
+
+
+class GroupPostDiscussionVote(Base):
+    __tablename__ = "group_post_discussion_votes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    post_id = Column(Integer, ForeignKey("group_posts.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    option_id = Column(Integer, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    post = relationship("GroupPost", back_populates="discussion_votes")
+    user = relationship("User")
+
+    __table_args__ = (
+        UniqueConstraint("post_id", "user_id", name="uq_group_post_discussion_vote_user"),
+    )
+
+
+class GroupCommentReport(Base):
+    __tablename__ = "group_comment_reports"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    comment_id = Column(Integer, ForeignKey("group_comments.id", ondelete="CASCADE"), nullable=False)
+    reporter_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    reason_code = Column(String(50), nullable=False, default="OTHER")
+    reason = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    comment = relationship("GroupComment", back_populates="reports")
+    reporter = relationship("User")
+
+    __table_args__ = (
+        UniqueConstraint("comment_id", "reporter_user_id", name="uq_group_comment_report_user"),
+    )
 
 
 # =========================
@@ -754,6 +957,30 @@ class AIJob(Base):
     )
 
 
+class BookReadingSummary(Base):
+    __tablename__ = "book_reading_summaries"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
+    status = Column(Enum(ReadingSummaryStatus), nullable=False, default=ReadingSummaryStatus.NOT_READY)
+    summary_dirty = Column(Boolean, nullable=False, default=False)
+    stats_json = Column(JSON, nullable=True)
+    summary_json = Column(JSON, nullable=True)
+    last_source_updated_at = Column(DateTime, nullable=True)
+    last_summarized_at = Column(DateTime, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "book_id", name="uq_book_reading_summary_user_book"),
+    )
+
+    user = relationship("User")
+    book = relationship("Book")
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 
@@ -769,14 +996,38 @@ class Notification(Base):
         nullable=False,
         default=NotificationType.GENERAL,
     )
+    tab_category = Column(
+        Enum(NotificationTabCategory),
+        nullable=False,
+        default=NotificationTabCategory.GENERAL,
+    )
     title = Column(String(255), nullable=True)
     body = Column(Text, nullable=False)
     data = Column(JSON, nullable=True)
+    thumbnail_url = Column(String(1024), nullable=True)
+    target_info = Column(JSON, nullable=True)
 
     is_read = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     user = relationship("User", back_populates="notifications")
+
+
+class UserNotificationSetting(Base):
+    __tablename__ = "user_notification_settings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    push_enabled = Column(Boolean, nullable=False, default=True)
+    general_enabled = Column(Boolean, nullable=False, default=True)
+    group_enabled = Column(Boolean, nullable=False, default=True)
+    marketing_enabled = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    user = relationship("User", back_populates="notification_settings")
 
 
 # =========================
@@ -871,7 +1122,7 @@ class FCMToken(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     last_used_at = Column(DateTime, nullable=True)
 
-    user = relationship("User")
+    user = relationship("User", back_populates="fcm_tokens")
 
 
 # =========================
@@ -890,4 +1141,146 @@ class UserTaste(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
+    user = relationship("User")
+
+
+
+class BadgeDefinition(Base):
+    __tablename__ = "badge_definitions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(100), nullable=False, unique=True)
+    category = Column(String(50), nullable=False)
+    level_code = Column(String(100), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    threshold = Column(Integer, nullable=False)
+    icon_url = Column(String(1024), nullable=True)
+    context_type = Column(String(50), nullable=True)
+    is_repeatable = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    user_badges = relationship("UserBadge", back_populates="badge_definition")
+
+
+class UserBadge(Base):
+    __tablename__ = "user_badges"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    badge_definition_id = Column(Integer, ForeignKey("badge_definitions.id", ondelete="CASCADE"), nullable=False)
+    context_value = Column(String(191), nullable=True)
+    progress_snapshot = Column(JSON, nullable=True)
+    earned_at = Column(DateTime, server_default=func.now(), nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "badge_definition_id", "context_value", name="uq_user_badge_context"),
+    )
+
+    user = relationship("User", back_populates="badges")
+    badge_definition = relationship("BadgeDefinition", back_populates="user_badges")
+
+
+# =========================
+# Collection / Tag
+# =========================
+
+
+class Collection(Base):
+    __tablename__ = "collections"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    is_private = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    user = relationship("User")
+    books = relationship(
+        "CollectionBook",
+        cascade="all, delete-orphan",
+        order_by="CollectionBook.sort_order.asc(), CollectionBook.id.asc()",
+    )
+    likes = relationship("CollectionLike", cascade="all, delete-orphan")
+    tags = relationship("CollectionTag", cascade="all, delete-orphan")
+
+
+class TagCategory(Base):
+    __tablename__ = "tag_categories"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(Enum(CollectionTagCategoryType), nullable=False, unique=True)
+    name = Column(String(100), nullable=False, unique=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    tags = relationship("Tag")
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    category_id = Column(Integer, ForeignKey("tag_categories.id", ondelete="SET NULL"), nullable=True)
+    name = Column(String(100), nullable=False)
+    normalized_name = Column(String(100), nullable=False, unique=True)
+    is_system = Column(Boolean, nullable=False, default=False)
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    category = relationship("TagCategory")
+    created_by = relationship("User")
+
+
+class CollectionTag(Base):
+    __tablename__ = "collection_tags"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    collection_id = Column(Integer, ForeignKey("collections.id", ondelete="CASCADE"), nullable=False)
+    tag_id = Column(Integer, ForeignKey("tags.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("collection_id", "tag_id", name="uq_collection_tag"),
+    )
+
+    collection = relationship("Collection")
+    tag = relationship("Tag")
+
+
+class CollectionBook(Base):
+    __tablename__ = "collection_books"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    collection_id = Column(Integer, ForeignKey("collections.id", ondelete="CASCADE"), nullable=False)
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("collection_id", "book_id", name="uq_collection_book"),
+    )
+
+    collection = relationship("Collection")
+    book = relationship("Book")
+
+
+class CollectionLike(Base):
+    __tablename__ = "collection_likes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    collection_id = Column(Integer, ForeignKey("collections.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("collection_id", "user_id", name="uq_collection_like"),
+    )
+
+    collection = relationship("Collection")
     user = relationship("User")

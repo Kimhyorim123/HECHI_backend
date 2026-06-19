@@ -1,11 +1,14 @@
 from app.core.utils import to_seoul
+from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.core.auth import get_current_user
 from app.database import get_db
-from app.models import Review, User, UserBook, ReviewLike, ReviewComment
+from app.models import NotificationType, Review, User, UserBook, ReviewLike, ReviewComment
+from app.services.badges import evaluate_user_badges
+from app.services.notify import create_notification
 from app.schemas.review import (
     ReviewCreateRequest,
     ReviewUpdateRequest,
@@ -18,6 +21,44 @@ from app.schemas.review import (
 )
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
+
+
+def _default_profile_thumbnail(name: str | None) -> str:
+    safe_name = quote(name or 'BookStopper')
+    return f"https://ui-avatars.com/api/?name={safe_name}&background=EFE4D2&color=5B4636&size=256"
+
+
+def _notify_review_reaction(
+    db: Session,
+    *,
+    review: Review,
+    actor: User,
+    body: str,
+    event_kind: str,
+    comment_id: int | None = None,
+) -> None:
+    if review.user_id == actor.id:
+        return
+    payload = {
+        'reviewId': review.id,
+        'bookId': review.book_id,
+        'actorId': actor.id,
+        'actorName': actor.nickname,
+        'eventKind': event_kind,
+    }
+    if comment_id is not None:
+        payload['commentId'] = comment_id
+    create_notification(
+        db,
+        review.user_id,
+        title='리뷰 반응 알림',
+        body=body,
+        notification_type=NotificationType.REVIEW_REACTION,
+        target_info=payload,
+        thumbnail_url=_default_profile_thumbnail(actor.nickname),
+        send_push=True,
+        data=payload,
+    )
 
 
 def _get_or_create_user_book(db: Session, user_id: int, book_id: int) -> UserBook:
@@ -62,6 +103,7 @@ def create_review(
     db.add(review)
     db.commit()
     db.refresh(review)
+    evaluate_user_badges(db, current_user.id)
 
     resp = ReviewResponse.model_validate(review)
     resp.created_date = to_seoul(resp.created_date)
@@ -96,6 +138,7 @@ def upsert_review(
             rv.is_spoiler = payload.is_spoiler
         db.commit()
         db.refresh(rv)
+        evaluate_user_badges(db, current_user.id)
         resp = ReviewResponse.model_validate(rv)
         resp.created_date = to_seoul(resp.created_date)
         resp.is_my_review = True
@@ -112,6 +155,7 @@ def upsert_review(
     db.add(review)
     db.commit()
     db.refresh(review)
+    evaluate_user_badges(db, current_user.id)
     resp = ReviewResponse.model_validate(review)
     resp.created_date = to_seoul(resp.created_date)
     resp.is_my_review = True
@@ -140,6 +184,7 @@ def update_rating_only(
         rv.rating = rating
         db.commit()
         db.refresh(rv)
+        evaluate_user_badges(db, current_user.id)
         resp = ReviewResponse.model_validate(rv)
         resp.created_date = to_seoul(resp.created_date)
         resp.is_my_review = True
@@ -156,6 +201,7 @@ def update_rating_only(
     db.add(review)
     db.commit()
     db.refresh(review)
+    evaluate_user_badges(db, current_user.id)
     resp = ReviewResponse.model_validate(review)
     resp.created_date = to_seoul(resp.created_date)
     resp.is_my_review = True
@@ -191,6 +237,7 @@ def update_review(
 
     db.commit()
     db.refresh(rv)
+    evaluate_user_badges(db, current_user.id)
     resp = ReviewResponse.model_validate(rv)
     resp.created_date = to_seoul(resp.created_date)
     resp.is_my_review = True
@@ -274,7 +321,7 @@ def list_reviews_for_book(
     # 작성자 닉네임
     user_ids = {rv.user_id for rv in reviews}
     user_map = {
-        u.id: u.nickname
+        u.id: {"nickname": u.nickname, "profile_image_url": u.profile_image_url}
         for u in db.query(User).filter(User.id.in_(user_ids)).all()
     }
 
@@ -287,7 +334,9 @@ def list_reviews_for_book(
         item.book_comment_count = book_comment_count
         item.user_comment_count = user_comment_count
         item.comment_count = comment_counts.get(rv.id, 0)
-        item.nickname = user_map.get(rv.user_id)
+        user_meta = user_map.get(rv.user_id) or {}
+        item.nickname = user_meta.get("nickname")
+        item.profileImageUrl = user_meta.get("profile_image_url")
         out.append(item)
     return out
 
@@ -365,6 +414,7 @@ def get_review_detail(
 
     user = db.query(User).filter(User.id == rv.user_id).first()
     resp.nickname = user.nickname if user else None
+    resp.profileImageUrl = user.profile_image_url if user else None
 
     rating_count = (
         db.query(func.count(Review.rating))
@@ -419,6 +469,15 @@ def toggle_like_review(
     rv.like_count = (rv.like_count or 0) + 1
     db.commit()
     db.refresh(rv)
+
+    _notify_review_reaction(
+        db,
+        review=rv,
+        actor=current_user,
+        body='내 리뷰에 좋아요가 추가됐어요.',
+        event_kind='REVIEW_LIKE',
+    )
+
     return {"liked": True, "like_count": rv.like_count}
 
 
@@ -432,15 +491,19 @@ def list_review_comments(
     if not rv:
         raise HTTPException(status_code=404, detail="리뷰를 찾을 수 없습니다")
     comments = (
-        db.query(ReviewComment)
+        db.query(ReviewComment, User.nickname, User.profile_image_url)
+        .join(User, User.id == ReviewComment.user_id)
         .filter(ReviewComment.review_id == review_id)
         .order_by(ReviewComment.created_at.asc(), ReviewComment.id.asc())
         .all()
     )
     out = []
-    for c in comments:
+    for c, nickname, profile_image_url in comments:
         item = CommentResponse.model_validate(c)
+        item.nickname = nickname
+        item.profileImageUrl = profile_image_url
         item.created_at = to_seoul(item.created_at)
+        item.is_my_comment = (c.user_id == current_user.id)
         out.append(item)
     return out
 
@@ -463,8 +526,21 @@ def create_review_comment(
     db.add(comment)
     db.commit()
     db.refresh(comment)
+
+    _notify_review_reaction(
+        db,
+        review=rv,
+        actor=current_user,
+        body='내 리뷰에 새 댓글이 달렸어요.',
+        event_kind='REVIEW_COMMENT',
+        comment_id=comment.id,
+    )
+
     item = CommentResponse.model_validate(comment)
+    item.nickname = current_user.nickname
+    item.profileImageUrl = current_user.profile_image_url
     item.created_at = to_seoul(item.created_at)
+    item.is_my_comment = True
     return item
 
 

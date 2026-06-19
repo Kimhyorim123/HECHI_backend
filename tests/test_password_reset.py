@@ -5,6 +5,7 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import sessionmaker
 
 from app.main import app
+from app.core.config import get_settings
 from app.database import get_db
 from app.models import Base
 
@@ -15,6 +16,12 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base.metadata.create_all(bind=engine)
+
+settings = get_settings()
+settings.smtp_host = None
+settings.smtp_username = None
+settings.smtp_password = None
+settings.smtp_from_email = None
 
 
 def override_get_db():
@@ -30,6 +37,7 @@ client = TestClient(app)
 
 def test_password_reset_flow_success():
     email = f"pwreset_{uuid.uuid4().hex[:8]}@example.com"
+    login_id = f"pwreset_{uuid.uuid4().hex[:8]}"
     original_pw = "OldPassword123!"
     new_pw = "NewPassword456!"
 
@@ -38,6 +46,7 @@ def test_password_reset_flow_success():
         "/auth/register",
         json={
             "email": email,
+            "login_id": login_id,
             "password": original_pw,
             "name": "ResetUser",
             "nickname": "ru",
@@ -59,11 +68,11 @@ def test_password_reset_flow_success():
     assert conf.json()["ok"] is True
 
     # login with old password should fail
-    old_login = client.post("/auth/login", json={"email": email, "password": original_pw})
+    old_login = client.post("/auth/login", json={"login_id": login_id, "password": original_pw})
     assert old_login.status_code == 401
 
     # login with new password succeeds
-    new_login = client.post("/auth/login", json={"email": email, "password": new_pw})
+    new_login = client.post("/auth/login", json={"login_id": login_id, "password": new_pw})
     assert new_login.status_code == 200
     assert "access_token" in new_login.json()
 

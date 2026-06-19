@@ -1,6 +1,5 @@
 from sqlalchemy.orm import Session
 from typing import List, Tuple
-from datetime import datetime, timedelta
 
 from app.models import (
     User,
@@ -8,7 +7,6 @@ from app.models import (
     Book,
     UserBook,
     Wishlist,
-    SearchHistory,
 )
 from app.services.genre_mapping import get_korean_genres
 
@@ -39,19 +37,6 @@ def _get_preferred_genres_and_authors(db: Session, user_id: int) -> Tuple[set, s
     return genres, authors
 
 
-def _get_recent_search_keywords(db: Session, user_id: int, days: int = 30) -> List[str]:
-    cutoff = datetime.utcnow() - timedelta(days=days)
-    rows = (
-        db.query(SearchHistory)
-        .filter(SearchHistory.user_id == user_id)
-        .filter(SearchHistory.created_at >= cutoff)
-        .order_by(SearchHistory.id.desc())
-        .limit(50)
-        .all()
-    )
-    return [r.query for r in rows]
-
-
 def _is_excluded(db: Session, user_id: int, book_id: int) -> bool:
     # 읽은/평점/리뷰/위시/보관함 담김 제외
     if db.query(UserBook).filter(UserBook.user_id == user_id, UserBook.book_id == book_id).first():
@@ -63,7 +48,7 @@ def _is_excluded(db: Session, user_id: int, book_id: int) -> bool:
     return False
 
 
-def _score_book(b: Book, pref_genres: set, pref_authors: set, keywords: List[str]) -> float:
+def _score_book(b: Book, pref_genres: set, pref_authors: set) -> float:
     score = 0.0
     # 장르 적합 (한글 장르 매핑)
     if getattr(b, "category", None):
@@ -74,23 +59,13 @@ def _score_book(b: Book, pref_genres: set, pref_authors: set, keywords: List[str
     if getattr(b, "authors", None):
         if any(a in pref_authors for a in (b.authors or [])):
             score += 0.8
-    # 키워드 매칭(제목/출판사/카테고리에 간단 포함 검사)
-    title = (b.title or "").lower()
-    publisher = (b.publisher or "").lower()
-    category = (b.category or "").lower()
-    for kw in keywords:
-        k = kw.lower()
-        if k in title or k in publisher or k in category:
-            score += 0.7
-            break
     return score
 
 
 def get_personalized_books(db: Session, user: User, limit: int = 20, offset: int = 0) -> List[Book]:
     pref_genres, pref_authors = _get_preferred_genres_and_authors(db, user.id)
-    keywords = _get_recent_search_keywords(db, user.id)
 
-    # 간단 후보군: 장르/저자/키워드 유사한 책들 우선적으로 수집
+    # 간단 후보군: 장르/저자 유사한 책들 우선적으로 수집
     q = db.query(Book)
     # 후보군: BookCategory 테이블에서 pref_genres와 매핑되는 book_id 추출
     candidates = []
@@ -114,7 +89,7 @@ def get_personalized_books(db: Session, user: User, limit: int = 20, offset: int
     for b in candidates:
         if _is_excluded(db, user.id, b.id):
             continue
-        s = _score_book(b, pref_genres, pref_authors, keywords)
+        s = _score_book(b, pref_genres, pref_authors)
         if s > 0:
             scored.append((s, b))
 

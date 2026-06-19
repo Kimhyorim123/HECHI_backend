@@ -6,15 +6,21 @@ from app.core.config import get_settings
 def test_auto_login_cookie_refresh_flow():
     settings = get_settings()
     settings.environment = "local"
+    settings.smtp_host = None
+    settings.smtp_username = None
+    settings.smtp_password = None
+    settings.smtp_from_email = None
 
     client = TestClient(app)
 
     email = "auto_login_e2e@example.com"
+    login_id = "auto_login_e2e"
     password = "Test1234!"
 
     # register
     client.post("/auth/register", json={
         "email": email,
+        "login_id": login_id,
         "name": "Auto",
         "nickname": "Auto",
         "password": password,
@@ -22,7 +28,7 @@ def test_auto_login_cookie_refresh_flow():
 
     # login with remember_me
     res = client.post("/auth/login", json={
-        "email": email,
+        "login_id": login_id,
         "password": password,
         "remember_me": True,
     })

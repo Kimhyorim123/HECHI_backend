@@ -5,6 +5,7 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import sessionmaker
 
 from app.main import app
+from app.core.config import get_settings
 from app.database import get_db
 from app.models import Base
 
@@ -15,6 +16,12 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base.metadata.create_all(bind=engine)
+
+settings = get_settings()
+settings.smtp_host = None
+settings.smtp_username = None
+settings.smtp_password = None
+settings.smtp_from_email = None
 
 
 def override_get_db():
@@ -30,13 +37,14 @@ client = TestClient(app)
 
 def setup_user():
     email = f"crud_{uuid.uuid4().hex[:8]}@example.com"
+    login_id = f"crud_{uuid.uuid4().hex[:8]}"
     pw = "Pw123456!"
     r = client.post(
         "/auth/register",
-        json={"email": email, "password": pw, "name": "C", "nickname": "D"},
+        json={"email": email, "login_id": login_id, "password": pw, "name": "C", "nickname": "D"},
     )
     assert r.status_code in (200, 201)
-    login = client.post("/auth/login", json={"email": email, "password": pw})
+    login = client.post("/auth/login", json={"login_id": login_id, "password": pw})
     token = login.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 

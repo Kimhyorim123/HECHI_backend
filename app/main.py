@@ -19,7 +19,6 @@ from .api import highlight as highlight_router
 from .api import bookmark as bookmark_router
 from .api import review as review_router
 from .api import book as book_router
-from .api import support as support_router
 from .api import customer_service as customer_service_router
 from .api import reading_status as reading_status_router
 from .api import taste as taste_router
@@ -32,6 +31,12 @@ from .api import recommend_for_you as recommend_for_you_router
 from .api import wishlist as wishlist_router
 from .api import upload as upload_router
 from .api import notifications as notifications_router
+from .api import group as group_router
+from .api import user_groups as user_groups_router
+from .api import collection as collection_router
+from .api import badge as badge_router
+from .api import reading_summary as reading_summary_router
+from .api import user_profile as user_profile_router
 from .api import library as library_router
 from .schemas.error import ErrorResponse
 from .database import engine
@@ -57,7 +62,6 @@ app.include_router(highlight_router.router)
 app.include_router(bookmark_router.router)
 app.include_router(review_router.router)
 app.include_router(book_router.router)
-app.include_router(support_router.router)
 app.include_router(customer_service_router.router)
 app.include_router(reading_status_router.router)
 app.include_router(taste_router.router)
@@ -70,6 +74,13 @@ app.include_router(recommend_for_you_router.router)
 app.include_router(wishlist_router.router)
 app.include_router(upload_router.router)
 app.include_router(notifications_router.router)
+app.include_router(group_router.router)
+app.include_router(user_groups_router.router)
+app.include_router(collection_router.router)
+app.include_router(badge_router.router)
+app.include_router(reading_summary_router.router)
+app.include_router(user_profile_router.router)
+app.include_router(user_profile_router.router)
 
 # Serve uploaded files (customer-service attachments)
 _upload_dir = os.environ.get("UPLOAD_DIR", os.path.abspath(os.path.join(os.getcwd(), "uploads")))

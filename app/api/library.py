@@ -58,7 +58,10 @@ def _apply_auto_complete(db: Session, user_id: int):
                 ub.finished_date = date.today()
                 changed = True
     if changed:
+        user_ids = {r.user_id for r in rows}
         db.commit()
+        for user_id in user_ids:
+            evaluate_user_badges(db, user_id)
 
 
 def _get_current_page(db: Session, user_id: int, book_id: int) -> Optional[int]:

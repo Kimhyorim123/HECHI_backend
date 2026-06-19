@@ -6,6 +6,8 @@ from app.database import get_db
 from app.models import Bookmark, User, UserBook
 from app.schemas.bookmark import BookmarkCreateRequest, BookmarkResponse, BookmarkUpdateRequest
 from app.core.utils import to_seoul
+from app.services.badges import evaluate_user_badges
+from app.services.reading_summary import mark_summary_dirty
 
 router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
 
@@ -36,6 +38,8 @@ def create_bookmark(
     db.add(bookmark)
     db.commit()
     db.refresh(bookmark)
+    evaluate_user_badges(db, current_user.id)
+    mark_summary_dirty(db, current_user.id, payload.book_id)
     # created_date 변환 적용
     bookmark.created_date = to_seoul(bookmark.created_date)
     return bookmark
@@ -56,8 +60,10 @@ def delete_bookmark(
     if not bm:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="북마크를 찾을 수 없습니다")
 
+    book_id = bm.user_book.book_id
     db.delete(bm)
     db.commit()
+    mark_summary_dirty(db, current_user.id, book_id)
     return None
 
 
@@ -84,6 +90,7 @@ def update_bookmark(
         bm.memo = payload.memo
     db.commit()
     db.refresh(bm)
+    mark_summary_dirty(db, current_user.id, bm.user_book.book_id)
     bm.created_date = to_seoul(bm.created_date)
     return bm
 

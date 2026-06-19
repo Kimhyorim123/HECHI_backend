@@ -60,6 +60,15 @@ class Settings(BaseSettings):
         validation_alias="S3_PUBLIC_BASE_URL",
     )  # e.g., https://cdn.example.com/
 
+    # SMTP / email verification
+    smtp_host: Optional[str] = Field(default=None, validation_alias="SMTP_HOST")
+    smtp_port: int = Field(default=587, validation_alias="SMTP_PORT")
+    smtp_username: Optional[str] = Field(default=None, validation_alias="SMTP_USERNAME")
+    smtp_password: Optional[str] = Field(default=None, validation_alias="SMTP_PASSWORD")
+    smtp_from_email: Optional[str] = Field(default=None, validation_alias="SMTP_FROM_EMAIL")
+    email_verification_exp_minutes: int = Field(default=10, validation_alias="EMAIL_VERIFICATION_EXP_MINUTES")
+    email_verification_resend_seconds: int = Field(default=60, validation_alias="EMAIL_VERIFICATION_RESEND_SECONDS")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

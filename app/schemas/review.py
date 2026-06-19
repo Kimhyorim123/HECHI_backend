@@ -57,6 +57,7 @@ class ReviewResponse(BaseModel):
     is_liked: bool = False
     # 작성자 닉네임
     nickname: str | None = None
+    profileImageUrl: str | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -68,8 +69,11 @@ class CommentResponse(BaseModel):
     id: int
     review_id: int
     user_id: int
+    nickname: str | None = None
+    profileImageUrl: str | None = None
     content: str
     created_at: datetime | date | str | None = None
+    is_my_comment: bool = False
     model_config = ConfigDict(from_attributes=True)
 
 

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user, get_db
 from app.models import Wishlist, Book, UserBook
+from app.services.badges import evaluate_user_badges
 from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/wishlist", tags=["wishlist"]) 
@@ -62,6 +63,7 @@ def add_to_wishlist(
     db.add(w)
     db.commit()
     db.refresh(w)
+    evaluate_user_badges(db, current_user.id)
     return {"ok": True, "book_id": book_id, "user_book_id": ub.id, "added_at": to_seoul(w.created_at)}
 
 @router.get("/", summary="내 위시리스트 조회")

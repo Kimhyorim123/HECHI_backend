@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models import Note, User, UserBook
 from app.schemas.note import NoteCreateRequest, NoteUpdateRequest, NoteResponse
 from app.core.utils import to_seoul
+from app.services.reading_summary import mark_summary_dirty
 
 router = APIRouter(prefix="/notes", tags=["notes"])
 
@@ -36,6 +37,8 @@ def create_note(
     db.add(note)
     db.commit()
     db.refresh(note)
+    mark_summary_dirty(db, current_user.id, note.user_book.book_id)
+    mark_summary_dirty(db, current_user.id, payload.book_id)
     note.created_date = to_seoul(note.created_date)
     return note
 
@@ -78,8 +81,10 @@ def delete_note(
     if not note:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="노트를 찾을 수 없습니다")
 
+    book_id = note.user_book.book_id
     db.delete(note)
     db.commit()
+    mark_summary_dirty(db, current_user.id, book_id)
     return None
 
 

@@ -5,6 +5,8 @@ from sqlalchemy import func
 from app.core.auth import get_current_user
 from app.database import get_db
 from app.models import User, UserBook, Book, ReadingSession, Bookmark, Highlight, Note
+from app.models import ReadingStatus
+from app.services.badges import evaluate_user_badges
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/reading-status", tags=["reading-status"])
@@ -45,6 +47,8 @@ def update_status(payload: StatusUpdate, db: Session = Depends(get_db), user: Us
     if payload.status == "COMPLETED" and (not ub.completed_at or prev_status != "COMPLETED"):
         ub.completed_at = now
     db.commit()
+    if payload.status == ReadingStatus.COMPLETED:
+        evaluate_user_badges(db, user.id)
     return {"ok": True, "user_book_id": ub.id, "book_id": ub.book_id, "status": ub.status}
 
 

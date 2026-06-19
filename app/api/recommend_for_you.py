@@ -3,13 +3,75 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.database import get_db
-from app.models import User, Book, SearchQueryStat, Review, BookCategory
+from app.models import User, Book, SearchQueryStat, Review, BookCategory, Notification, NotificationType
 from app.services.recommend_personalized import get_personalized_books
+from app.services.notify import create_notification
 from app.schemas.book import BookResponse
 from sqlalchemy import func
 from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/recommend", tags=["recommend"]) 
+
+
+RECENT_RECOMMENDATION_DAYS = 14
+RECOMMENDATION_NOTIFICATION_POOL_SIZE = 8
+
+
+def _pick_notification_book(db: Session, user: User, items: list[BookResponse]) -> BookResponse | None:
+    if not items:
+        return None
+
+    pool = items[:RECOMMENDATION_NOTIFICATION_POOL_SIZE]
+    recent_cutoff = datetime.utcnow() - timedelta(days=RECENT_RECOMMENDATION_DAYS)
+    recent_rows = (
+        db.query(Notification)
+        .filter(
+            Notification.user_id == user.id,
+            Notification.type == NotificationType.BOOK_RECOMMEND,
+            Notification.created_at >= recent_cutoff,
+        )
+        .order_by(Notification.created_at.desc(), Notification.id.desc())
+        .limit(20)
+        .all()
+    )
+
+    recent_book_ids: list[int] = []
+    for row in recent_rows:
+        source = row.target_info or row.data or {}
+        book_id = source.get("bookId")
+        if isinstance(book_id, int) and book_id not in recent_book_ids:
+            recent_book_ids.append(book_id)
+
+    recent_book_id_set = set(recent_book_ids)
+    for item in pool:
+        if item.id not in recent_book_id_set:
+            return item
+
+    rotation_seed = len(recent_book_ids)
+    return pool[rotation_seed % len(pool)]
+
+
+def _notify_recommendation(db: Session, user: User, items: list[BookResponse]) -> None:
+    selected = _pick_notification_book(db, user, items)
+    if not selected:
+        return
+    create_notification(
+        db,
+        user.id,
+        title="오늘의 추천 도착",
+        body=f"'{selected.title}'처럼 취향에 맞는 책을 골라봤어요.",
+        notification_type=NotificationType.BOOK_RECOMMEND,
+        thumbnail_url=selected.thumbnail or selected.small_thumbnail,
+        target_info={
+            "bookId": selected.id,
+            "recommendationType": "PERSONALIZED",
+        },
+        data={
+            "bookId": selected.id,
+            "recommendationType": "PERSONALIZED",
+        },
+        send_push=True,
+    )
 
 def _to_book_response_with_agg(db: Session, b: Book) -> BookResponse:
     avg, cnt = (
@@ -98,4 +160,5 @@ def for_you(
         # personalized 결과도 응답 형태 통일
         items = [_to_book_response_with_agg(db, b) for b in items]
 
+    _notify_recommendation(db, user, items)
     return {"items": items}

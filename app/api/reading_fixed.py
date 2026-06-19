@@ -18,8 +18,8 @@ from app.models import (
     ReadingEvent,
     ReadingEventType,
     User,
-    Book,
 )
+
 from app.schemas.reading import (
     ReadingSessionStartRequest,
     ReadingEventCreateRequest,

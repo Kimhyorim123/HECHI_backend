@@ -61,8 +61,7 @@ class UserStatsResponse(BaseModel):
     rating_distribution: List[RatingBucket]
     rating_summary: RatingSummary
     reading_time: ReadingTime
-    top_level_genres: List[GenreStat]
-    sub_genres: List[GenreStat]
+    genres: List[GenreStat]
 
 
 # =============================
@@ -211,8 +210,7 @@ def _humanize_seconds(total: int) -> str:
     response_model=UserStatsResponse,
     summary="사용자 독서/평점/선호 통계",
     description=(
-        "선호 장르 UI는 sub_genres를 사용하세요. "
-        "top_level_genres는 대분류(소설/시/에세이/만화/웹툰)로 표기용입니다. "
+        "선호 장르 UI는 genres 배열을 사용하세요. "
         "모든 집계는 사용자 평점이 있는 리뷰만 포함되며, 반환 목록은 평균점수와 편수 기준으로 내림차순 정렬됩니다."
     ),
 )
@@ -366,17 +364,15 @@ def user_stats(
         return out
 
     top_level = build_stats_with_zeros_from(top_acc, TOP_LEVEL_GENRES)
-    # 세부 장르는 개별 + 그룹 결과를 합쳐서 제공
     sub_individual = build_stats_with_zeros_from(sub_acc, SUB_GENRES)
     sub_grouped = build_group_stats_from(sub_acc, SUB_GENRE_GROUPS)
-    sub_level = sorted(sub_individual + sub_grouped, key=lambda x: (x.average_5, x.review_count), reverse=True)
+    genres = sorted(top_level + sub_individual + sub_grouped, key=lambda x: (x.average_5, x.review_count), reverse=True)
 
     return UserStatsResponse(
         rating_distribution=distribution,
         rating_summary=rating_summary,
         reading_time=reading_time,
-        top_level_genres=top_level,
-        sub_genres=sub_level,
+        genres=genres,
     )
 
 

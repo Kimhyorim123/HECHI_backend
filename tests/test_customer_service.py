@@ -4,6 +4,7 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import sessionmaker
 
 from app.main import app
+from app.core.config import get_settings
 from app.database import get_db
 from app.core.auth import get_admin_user
 from app.models import Base, FAQ
@@ -17,6 +18,12 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base.metadata.create_all(bind=engine)
+
+settings = get_settings()
+settings.smtp_host = None
+settings.smtp_username = None
+settings.smtp_password = None
+settings.smtp_from_email = None
 
 
 def override_get_db():
@@ -32,13 +39,14 @@ client = TestClient(app)
 def register_and_login(email_suffix: str = "cs"):
     reg = {
         "email": f"{email_suffix}@example.com",
+        "login_id": f"{email_suffix}_login",
         "password": "Pw123456!",
         "name": "User",
         "nickname": "u",
     }
     r = client.post("/auth/register", json=reg)
     assert r.status_code in (200, 201)
-    r = client.post("/auth/login", json={"email": reg["email"], "password": reg["password"]})
+    r = client.post("/auth/login", json={"login_id": reg["login_id"], "password": reg["password"]})
     assert r.status_code == 200
     token = r.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
@@ -51,13 +59,12 @@ def test_customer_service_flow():
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_admin_user] = lambda: object()
     
-    # Seed 8 FAQs via API (admin override active)
+    # Seed 8 FAQs directly (customer-service has no FAQ create endpoint)
+    db = TestingSessionLocal()
     for i in range(8):
-        cr = client.post(
-            "/support/faqs",
-            json={"question": f"Q{i}", "answer": f"A{i}", "is_pinned": True},
-        )
-        assert cr.status_code == 200
+        db.add(FAQ(question=f"Q{i}", answer=f"A{i}", is_pinned=True))
+    db.commit()
+    db.close()
 
     r = client.get("/customer-service/faqs")
     assert r.status_code == 200

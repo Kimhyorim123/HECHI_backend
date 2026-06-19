@@ -12,6 +12,7 @@ from app.schemas.highlight import (
     HighlightUpdateRequest,
     HighlightResponse,
 )
+from app.services.reading_summary import mark_summary_dirty
 
 router = APIRouter(prefix="/highlights", tags=["highlights"])
 
@@ -70,6 +71,7 @@ def create_highlight(
     db.add(highlight)
     db.commit()
     db.refresh(highlight)
+    mark_summary_dirty(db, current_user.id, payload.book_id)
     return highlight
 
 
@@ -106,6 +108,7 @@ def update_highlight(
 
     db.commit()
     db.refresh(hl)
+    mark_summary_dirty(db, current_user.id, hl.user_book.book_id)
     return hl
 
 
@@ -126,8 +129,10 @@ def delete_highlight(
             status_code=status.HTTP_404_NOT_FOUND, detail="하이라이트를 찾을 수 없습니다"
         )
 
+    book_id = hl.user_book.book_id
     db.delete(hl)
     db.commit()
+    mark_summary_dirty(db, current_user.id, book_id)
     return None
 
 

@@ -14,11 +14,13 @@ from app.models import (
     SearchHistory,
     BookView,
     Book,
+    BookCategory,
     Review,
     ReadingSession,
     UserInsight,
 )
 from app.schemas.analytics import RatingSummary
+from app.services.user_insights import generate_user_insight
 from app.schemas.calendar import CalendarMonthResponse, CalendarDay, CalendarBookItem
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -58,8 +60,7 @@ class UserStatsResponse(BaseModel):
     rating_distribution: List[RatingBucket]
     rating_summary: RatingSummary
     reading_time: ReadingTime
-    sub_genres: List[GenreStat]
-    top_level_genres: List[GenreStat]
+    genres: List[GenreStat]
 
 
 # =============================
@@ -98,7 +99,7 @@ def _humanize_seconds(total: int) -> str:
 
 
 # =============================
-# 장르 정의 (너가 쓰겠다고 한 것만)
+# 장르 정의
 # =============================
 
 TOP_LEVEL_GENRES = ["소설", "시", "에세이", "만화"]
@@ -119,6 +120,7 @@ SUB_GENRES = [
     "예술",
     "여행",
     "취미",
+    "코미디",
 ]
 ALL_ALLOWED_GENRES = TOP_LEVEL_GENRES + SUB_GENRES
 
@@ -226,6 +228,10 @@ CATEGORY_TO_GENRE_PRIMARY: dict[str, str] = {
     "드라마틱 판타지": "판타지",
     "무협": "판타지",
     "액션": "액션",
+    "코미디": "코미디",
+    "유머": "코미디",
+    "풍자": "코미디",
+    "희극": "코미디",
 
     # ---- 로맨스 ----
     "로맨스소설": "로맨스",
@@ -295,7 +301,7 @@ CATEGORY_TO_GENRE_PRIMARY: dict[str, str] = {
     "여성학이론": "사회/정치",
     "언론/미디어": "사회/정치",
     "언론정보학": "사회/정치",
-    "출판/편집": "사회/정치",
+    "출판/편집": "인문",
     "광고/홍보": "경제/경영",  # 경제/경영 쪽에 더 가까움
     "법과 생활": "사회/정치",
     "헌법": "사회/정치",
@@ -459,7 +465,7 @@ FALLBACK_RULES: List[Tuple[str, str]] = [
     ("저작권", "사회/정치"),
     ("언론", "사회/정치"),
     ("미디어", "사회/정치"),
-    ("출판", "사회/정치"),
+    ("출판", "인문"),
     ("환경", "사회/정치"),
     ("인권", "사회/정치"),
 
@@ -498,20 +504,51 @@ FALLBACK_RULES: List[Tuple[str, str]] = [
     ("판타지", "판타지"),
     ("로맨스", "로맨스"),
     ("액션", "액션"),
+    ("모험", "액션"),
+    ("어드벤처", "액션"),
+    ("adventure", "액션"),
+    ("action", "액션"),
+    ("무협", "판타지"),
+    ("humor", "코미디"),
+    ("humour", "코미디"),
+    ("comedy", "코미디"),
+    ("comic", "코미디"),
+    ("유머", "코미디"),
+    ("코미디", "코미디"),
+    ("희극", "코미디"),
+    ("풍자", "코미디"),
 
     # 대분류
     ("에세이", "에세이"),
     ("시", "시"),
     ("소설", "소설"),
     ("만화", "만화"),
+    ("fiction", "소설"),
+    ("novel", "소설"),
+    ("literature", "소설"),
+    ("poetry", "시"),
+    ("essay", "에세이"),
+    ("comics", "만화"),
+    ("graphic novels", "만화"),
+    ("graphic novel", "만화"),
+    ("manga", "만화"),
 
     # 여행/취미/자기계발
     ("여행", "여행"),
     ("가이드북", "여행"),
+    ("travel", "여행"),
     ("요리", "취미"),
     ("제과", "취미"),
     ("컬러링", "취미"),
     ("취미", "취미"),
+    ("cooking", "취미"),
+    ("craft", "취미"),
+    ("games", "취미"),
+    ("sports", "취미"),
+    ("gardening", "취미"),
+    ("pets", "취미"),
+    ("health", "취미"),
+    ("hobbies", "취미"),
     ("자기계발", "자기계발"),
     ("수험서", "자기계발"),
     ("자격증", "자기계발"),
@@ -527,6 +564,9 @@ FALLBACK_RULES: List[Tuple[str, str]] = [
     ("진로", "자기계발"),
     ("학습", "자기계발"),
     ("교육", "자기계발"),
+    ("self-help", "자기계발"),
+    ("study aids", "자기계발"),
+    ("language arts", "자기계발"),
 
     # 예술
     ("예술", "예술"),
@@ -536,6 +576,29 @@ FALLBACK_RULES: List[Tuple[str, str]] = [
     ("영화", "예술"),
     ("연극", "예술"),
     ("애니메이션", "만화"),
+    ("art", "예술"),
+    ("music", "예술"),
+    ("performing arts", "예술"),
+    ("architecture", "예술"),
+    ("photography", "예술"),
+    ("design", "예술"),
+    ("science", "과학"),
+    ("technology", "과학"),
+    ("nature", "과학"),
+    ("history", "역사"),
+    ("historical", "역사"),
+    ("philosophy", "철학"),
+    ("ethics", "철학"),
+    ("social science", "사회/정치"),
+    ("political science", "사회/정치"),
+    ("current events", "사회/정치"),
+    ("law", "사회/정치"),
+    ("business", "경제/경영"),
+    ("economics", "경제/경영"),
+    ("investments", "경제/경영"),
+    ("psychology", "인문"),
+    ("religion", "인문"),
+    ("spirituality", "인문"),
 ]
 
 
@@ -612,7 +675,9 @@ def resolve_genre(category: Optional[str]) -> Optional[str]:
         return None
 
     cat_norm = _normalize_token(category)
+    cat_norm_lower = cat_norm.lower()
     tokens = _split_category_tokens(cat_norm)
+    tokens_lower = [t.lower() for t in tokens]
 
     # 1) exact: leaf 우선(앞쪽)부터
     for t in tokens:
@@ -620,19 +685,32 @@ def resolve_genre(category: Optional[str]) -> Optional[str]:
         if g in ALL_ALLOWED_GENRES:
             return g
 
+    for t in tokens_lower:
+        g = CATEGORY_TO_GENRE_PRIMARY.get(t)
+        if g in ALL_ALLOWED_GENRES:
+            return g
+
     # 2) contains fallback: leaf 우선(앞쪽)부터
-    for t in tokens:
+    for t in tokens_lower:
         for needle, genre in FALLBACK_RULES:
-            if needle and needle in t:
+            if needle and needle.lower() in t:
                 if genre in ALL_ALLOWED_GENRES:
                     return genre
 
     # 3) 전체 문자열 fallback
     for needle, genre in FALLBACK_RULES:
-        if needle and needle in cat_norm:
+        if needle and needle.lower() in cat_norm_lower:
             if genre in ALL_ALLOWED_GENRES:
                 return genre
 
+    return None
+
+
+def resolve_genre_from_candidates(*categories: Optional[str]) -> Optional[str]:
+    for category in categories:
+        genre = resolve_genre(category)
+        if genre:
+            return genre
     return None
 
 
@@ -774,38 +852,67 @@ def user_stats(
     # ✅ 장르 통계: Review 기준 + Book.category 매핑
     # -------------------------
     category_rows = (
-        db.query(Book.category, Review.rating)
+        db.query(Book.id, Book.category, Review.rating)
         .join(Review, Review.book_id == Book.id)
         .filter(Review.user_id == user.id, Review.rating != None)
         .all()
     )
 
+    book_ids = [book_id for book_id, _, _ in category_rows]
+    categories_by_book: dict[int, list[str]] = {}
+    if book_ids:
+        for bid, cname in (
+            db.query(BookCategory.book_id, BookCategory.category_name)
+            .filter(BookCategory.book_id.in_(book_ids))
+            .all()
+        ):
+            if cname:
+                categories_by_book.setdefault(bid, []).append(cname)
+
     acc: dict[str, dict] = {g: {"sum": 0.0, "count": 0} for g in ALL_ALLOWED_GENRES}
 
-    for cat, rating in category_rows:
+    for book_id, cat, rating in category_rows:
         genre = resolve_genre(cat)
+        if not genre:
+            genre = resolve_genre_from_candidates(*(categories_by_book.get(book_id) or []))
         if not genre:
             continue
         acc[genre]["sum"] += float(rating)
         acc[genre]["count"] += 1
 
-    top_stats = build_stats(acc, TOP_LEVEL_GENRES)
-    sub_stats = build_stats(acc, SUB_GENRES)
+    genre_stats = build_stats(acc, ALL_ALLOWED_GENRES)
 
     return UserStatsResponse(
         rating_distribution=distribution,
         rating_summary=rating_summary,
         reading_time=reading_time,
-        sub_genres=sub_stats,
-        top_level_genres=top_stats,
+        genres=genre_stats,
     )
 
 
-@router.get("/my-insights", response_model=UserInsightResponse, summary="사용자 인사이트/태그 (임시 AI 대체)")
+@router.get("/my-insights", response_model=UserInsightResponse, summary="사용자 인사이트/태그")
 def my_insights(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    analysis, computed_tags = generate_user_insight(db, user.id)
+    if analysis is not None or computed_tags:
+        row = db.query(UserInsight).filter(UserInsight.user_id == user.id).first()
+        if not row:
+            row = UserInsight(user_id=user.id, analysis_text=analysis, tags=computed_tags)
+            db.add(row)
+            db.commit()
+        elif row.analysis_text != analysis or (row.tags or []) != computed_tags:
+            row.analysis_text = analysis
+            row.tags = computed_tags
+            db.commit()
+        tags = [
+            InsightTag(label=t["label"], weight=float(t.get("weight", 0.0)))
+            for t in computed_tags
+            if t.get("label")
+        ]
+        return UserInsightResponse(analysis=analysis, tags=tags)
+
     row = db.query(UserInsight).filter(UserInsight.user_id == user.id).first()
     if not row:
         return UserInsightResponse(analysis=None, tags=[])

@@ -25,6 +25,18 @@ def _ensure_initialized() -> None:
     _initialized = True
 
 
+ANDROID_CHANNEL_ID = "high_importance_channel"
+
+
+def _android_config() -> messaging.AndroidConfig:
+    return messaging.AndroidConfig(
+        priority="high",
+        notification=messaging.AndroidNotification(
+            channel_id=ANDROID_CHANNEL_ID,
+        ),
+    )
+
+
 def send_to_token(token: str, title: str, body: str, data: Optional[dict] = None) -> Optional[str]:
     """Send a notification to a single FCM token. Returns message ID or None if FCM not configured."""
     _ensure_initialized()
@@ -33,6 +45,7 @@ def send_to_token(token: str, title: str, body: str, data: Optional[dict] = None
     message = messaging.Message(
         token=token,
         notification=messaging.Notification(title=title, body=body),
+        android=_android_config(),
         data={k: str(v) for k, v in (data or {}).items()},
     )
     return messaging.send(message)
@@ -45,6 +58,7 @@ def send_to_topic(topic: str, title: str, body: str, data: Optional[dict] = None
     message = messaging.Message(
         topic=topic,
         notification=messaging.Notification(title=title, body=body),
+        android=_android_config(),
         data={k: str(v) for k, v in (data or {}).items()},
     )
     return messaging.send(message)
