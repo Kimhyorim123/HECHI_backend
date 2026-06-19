@@ -1,130 +1,130 @@
 # Bookstopper Backend
 
-Backend service for the Bookstopper application.
+Bookstopper 애플리케이션의 백엔드 서비스입니다.
 
-## Stack
+## 기술 스택
 - FastAPI
 - MySQL
 - Docker Compose
 - Nginx
 - Background Worker
-- OpenAI / Firebase / Aladin API integration
+- OpenAI / Firebase / Aladin API 연동
 
-## What To Commit
-Commit these files to GitHub so the project can be restored later:
-- application code under `app/`
-- background worker code under `worker/`
-- database migrations under `migrations/versions/`
+## GitHub에 포함할 파일
+다음 파일들은 GitHub에 올려야 나중에 같은 상태로 복원할 수 있습니다.
+- `app/` 아래의 애플리케이션 코드
+- `worker/` 아래의 백그라운드 워커 코드
+- `migrations/versions/` 아래의 데이터베이스 마이그레이션
 - `docker-compose.yml`
 - `Dockerfile.api`, `Dockerfile.worker`, `Dockerfile.nginx`
 - `nginx/nginx.conf`
 - `requirements.txt`
 - `README.md`
 - `.env.example`
-- committed API docs under `docs/openapi-v1.1.json`
+- `docs/openapi-v1.1.json`
 
-Do not commit:
+GitHub에 올리면 안 되는 파일은 다음과 같습니다.
 - `.env`
-- Firebase service account json
-- real API keys / passwords
-- local uploaded files under `uploads/`
-- database dumps unless you intentionally store backups elsewhere
+- Firebase 서비스 계정 JSON
+- 실제 API 키 / 비밀번호
+- `uploads/` 아래의 로컬 업로드 파일
+- 의도적으로 보관하는 경우를 제외한 DB 덤프 파일
 
-## First-Time Setup
+## 최초 설정
 ```bash
 git clone <YOUR_GITHUB_REPO_URL>
 cd bookstopper-backend
 cp .env.example .env
 ```
 
-Fill in the real values inside `.env` before starting containers. In particular, set the database passwords, API keys, and the Firebase JSON host path if you use notifications.
+컨테이너를 실행하기 전에 `.env` 안의 실제 값을 반드시 채우세요. 특히 DB 비밀번호, API 키, Firebase JSON 호스트 경로를 확인해야 합니다.
 
-## Run With Docker Compose
+## Docker Compose 실행
 ```bash
 docker compose up -d --build
 ```
 
-## Stop Containers
+## 컨테이너 중지
 ```bash
 docker compose down
 ```
 
-## Apply Migrations
-If your deployment flow requires manual migration execution, run:
+## 마이그레이션 적용
+수동으로 마이그레이션을 실행해야 하는 경우:
 
 ```bash
 docker compose exec api alembic upgrade head
 ```
 
-If container names are already fixed in the running server, you can also use:
+이미 실행 중인 서버에서 컨테이너 이름이 고정돼 있다면 아래 명령도 사용할 수 있습니다.
 
 ```bash
 docker exec -it bookstopper-api alembic upgrade head
 ```
 
-## Restore After Pull
-When you pull the repository on the same server or a new server, the minimum restore flow is:
+## pull 이후 복원 절차
+같은 서버든 새 서버든, 저장소를 다시 받았을 때의 최소 복원 절차는 다음과 같습니다.
 
 ```bash
 git pull origin main
-cp .env.example .env   # only if .env does not exist yet
-# fill real env values
+cp .env.example .env   # .env가 없을 때만
+# 실제 환경값 입력
 
 docker compose up -d --build
 docker compose exec api alembic upgrade head
 ```
 
-If you keep the Firebase service-account file outside the repository, point `FCM_SERVICE_ACCOUNT_JSON_HOST_PATH` in `.env` to that host file and keep `FCM_SERVICE_ACCOUNT_JSON_PATH` at the in-container path used by the app.
+Firebase 서비스 계정 파일을 저장소 밖에 두는 경우에는 `.env`의 `FCM_SERVICE_ACCOUNT_JSON_HOST_PATH`를 해당 호스트 경로로 지정하고, `FCM_SERVICE_ACCOUNT_JSON_PATH`는 컨테이너 내부 경로로 유지하세요.
 
-## Important: Code Backup Is Not Full Service Backup
-GitHub alone restores the codebase, but not the live service state.
-To restore the project exactly as it was, you also need:
-- database backup
-- uploaded file backup
-- real `.env` values
-- Firebase credential file
+## 코드 백업과 서비스 백업은 다릅니다
+GitHub에는 코드가 저장되지만, 실제 서비스 상태까지 자동으로 복원되지는 않습니다.
+정확한 복원을 위해서는 다음도 별도로 필요합니다.
+- DB 백업
+- 업로드 파일 백업
+- 실제 `.env` 값
+- Firebase 자격 증명 파일
 
-## Database Backup
-Create a MySQL dump:
+## DB 백업
+MySQL 덤프 생성:
 
 ```bash
 docker exec bookstopper-db mysqldump -u bookstopper -p'YOUR_DB_PASSWORD' bookstopper > backup_bookstopper.sql
 ```
 
-Restore it later:
+복원:
 
 ```bash
 docker exec -i bookstopper-db mysql -u bookstopper -p'YOUR_DB_PASSWORD' bookstopper < backup_bookstopper.sql
 ```
 
-## Uploaded Files Backup
-This project currently supports local file uploads. If you are not using S3, uploaded files must be backed up separately.
+## 업로드 파일 백업
+현재 프로젝트는 로컬 파일 업로드를 사용합니다. S3를 사용하지 않는 경우 업로드 파일도 따로 백업해야 합니다.
 
-Create backup:
+백업 생성:
 
 ```bash
 tar -czf uploads_backup.tar.gz uploads/
 ```
 
-Restore backup:
+복원:
 
 ```bash
 tar -xzf uploads_backup.tar.gz
 ```
 
-## Recommended Backup Set
-For a real recovery point, keep all of the following together:
-- GitHub repository
-- `.env` file stored securely outside GitHub
-- Firebase admin sdk json stored securely outside GitHub
+## 권장 백업 세트
+실제로 복구 가능한 상태로 보관하려면 아래 항목을 함께 관리하세요.
+- GitHub 저장소
+- GitHub 밖에 안전하게 보관한 `.env`
+- GitHub 밖에 안전하게 보관한 Firebase admin SDK JSON
 - `backup_bookstopper.sql`
 - `uploads_backup.tar.gz`
 
-## Current Upload Strategy
-- Group images and profile images can use `/uploads/presign`
-- If S3 is not configured, uploads fall back to local storage
-- Local uploaded files are served from `/static/uploads/`
+## 현재 업로드 방식
+- 그룹 이미지와 프로필 이미지는 `/uploads/presign`을 사용할 수 있습니다.
+- S3가 설정되지 않으면 업로드는 로컬 저장소로 fallback 됩니다.
+- 로컬 업로드 파일은 `/static/uploads/` 경로로 제공됩니다.
 
-## API Docs
-Committed OpenAPI spec:
+## API 문서
+커밋된 OpenAPI 사양:
 - `docs/openapi-v1.1.json`
