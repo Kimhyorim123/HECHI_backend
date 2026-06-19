@@ -6,10 +6,10 @@ services:
     container_name: bookstopper-db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: 09150809k!
-      MYSQL_DATABASE: bookstopper
-      MYSQL_USER: appuser
-      MYSQL_PASSWORD: 09150809k!
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-bookstopper}
+      MYSQL_USER: ${MYSQL_USER:-bookstopper}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
     ports:
       - "3306:3306"
     command: ["mysqld", "--default-authentication-plugin=mysql_native_password"]
@@ -23,18 +23,14 @@ services:
     container_name: bookstopper-api
     working_dir: /app
     env_file: .env
-    environment:
-      DATABASE_URL: mysql+pymysql://appuser:09150809k!@db:3306/bookstopper
-      FCM_SERVICE_ACCOUNT_JSON_PATH: /app/bookstopper-c6236-firebase-adminsdk-fbsvc-07d1b65982.json
     depends_on:
       - db
     # 내부 네트워크에서만 8000 사용 (Nginx가 80/443을 프록시)
     expose:
       - "8000"
     volumes:
-      - ./bookstopper-c6236-firebase-adminsdk-fbsvc-07d1b65982.json:/app/bookstopper-c6236-firebase-adminsdk-fbsvc-07d1b65982.json:ro
+      - ${FCM_SERVICE_ACCOUNT_JSON_HOST_PATH:-/home/ubuntu/bookstopper-c6236-firebase-adminsdk-fbsvc-07d1b65982.json}:${FCM_SERVICE_ACCOUNT_JSON_PATH:-/app/secrets/firebase-adminsdk.json}:ro
       - ./scripts:/app/scripts
-      - ./app/.env:/app/.env
 
   worker:
     build:
@@ -42,8 +38,6 @@ services:
       dockerfile: Dockerfile.worker
     container_name: bookstopper-worker
     env_file: .env
-    environment:
-      DATABASE_URL: mysql+pymysql://appuser:09150809k!@db:3306/bookstopper
     depends_on:
       - db
 

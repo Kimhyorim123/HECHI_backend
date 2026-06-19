@@ -37,7 +37,7 @@ cd bookstopper-backend
 cp .env.example .env
 ```
 
-Fill in the real values inside `.env` before starting containers.
+Fill in the real values inside `.env` before starting containers. In particular, set the database passwords, API keys, and the Firebase JSON host path if you use notifications.
 
 ## Run With Docker Compose
 ```bash
@@ -73,6 +73,8 @@ cp .env.example .env   # only if .env does not exist yet
 docker compose up -d --build
 docker compose exec api alembic upgrade head
 ```
+
+If you keep the Firebase service-account file outside the repository, point `FCM_SERVICE_ACCOUNT_JSON_HOST_PATH` in `.env` to that host file and keep `FCM_SERVICE_ACCOUNT_JSON_PATH` at the in-container path used by the app.
 
 ## Important: Code Backup Is Not Full Service Backup
 GitHub alone restores the codebase, but not the live service state.

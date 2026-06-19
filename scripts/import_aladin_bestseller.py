@@ -3,16 +3,18 @@ import requests
 import pymysql
 from datetime import datetime
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 # 환경변수 로드
 load_dotenv()
 ALADIN_API_KEY = os.getenv("ALADIN_API_KEY")
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:password@db:3306/bookstopper")
 
-# DB 연결 정보 (예시, 실제 환경에 맞게 수정)
-DB_HOST = "db"
-DB_USER = "root"
-DB_PASSWORD = "09150809k!"
-DB_NAME = "bookstopper"
+parsed_url = urlparse(DATABASE_URL.replace("mysql+pymysql://", "http://", 1))
+DB_HOST = parsed_url.hostname or "db"
+DB_USER = parsed_url.username or "root"
+DB_PASSWORD = parsed_url.password or "password"
+DB_NAME = (parsed_url.path or "/bookstopper").lstrip("/") or "bookstopper"
 
 # 알라딘 베스트셀러 API URL
 API_URL = f"https://www.aladin.co.kr/ttb/api/ItemList.aspx?ttbkey={ALADIN_API_KEY}&QueryType=Bestseller&MaxResults=50&start=1&SearchTarget=Book&output=js&Version=20131101"
